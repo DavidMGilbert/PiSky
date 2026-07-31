@@ -808,12 +808,25 @@ grant_rtlsdr_access()
 		fi
 	fi
 
+	# State the access requirement ourselves. What the rtl-sdr package's own
+	# rules grant varies between releases, and the decoder failing with
+	# "usb_open error -3 / Permission denied" is indistinguishable in the
+	# interface from a receiver that is simply not there.
+	run_root install -m 0644 -o root -g root 		"${PISKY_ROOT}/config_repo/pisky-rtlsdr.rules.repo" 		/etc/udev/rules.d/60-pisky-rtlsdr.rules
+
 	if getent passwd dump1090 >/dev/null 2>&1; then
 		for group in plugdev dialout; do
 			if getent group "${group}" >/dev/null 2>&1; then
 				run_root usermod -a -G "${group}" dump1090
 			fi
 		done
+	fi
+
+	# Rules apply at device events, so an already-connected dongle keeps its
+	# old ownership until udev is told to re-evaluate it.
+	if [[ ${DRY_RUN} != "true" ]]; then
+		run_root udevadm control --reload-rules 2>/dev/null || true
+		run_root udevadm trigger --subsystem-match=usb --action=add 2>/dev/null || true
 	fi
 }
 

@@ -1,0 +1,17 @@
+# RTL-SDR access for PiSky's ADS-B decoder.
+#
+# dump1090-mutability runs as its own unprivileged account, which cannot open
+# a USB device owned by root. The rtl-sdr package ships rules of its own, but
+# what they grant differs between releases, so PiSky states the requirement
+# explicitly rather than depending on them.
+#
+# plugdev is used because that is the group Debian intends for user-accessible
+# removable hardware, and the installer adds the decoder account to it.
+
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0660", GROUP="plugdev", SYMLINK+="rtl_sdr"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0660", GROUP="plugdev", SYMLINK+="rtl_sdr"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00a9", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b3", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1554", ATTRS{idProduct}=="5020", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="185b", ATTRS{idProduct}=="0620", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1f4d", ATTRS{idProduct}=="b803", MODE="0660", GROUP="plugdev"
