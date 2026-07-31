@@ -343,6 +343,29 @@ write_adsb_configuration()
 	trap - RETURN
 }
 
+#
+# The RTL-SDR equivalent of ensure_beast_serial_access.
+#
+# The DVB-T driver claims RTL2832U dongles on plug-in and holds them against
+# the decoder, and dump1090-mutability's own account reaches the device through
+# plugdev. Either one produces a receiver that is detected but never delivers,
+# which the interface can only report as stale.
+#
+ensure_rtlsdr_access()
+{
+	local group
+	if lsmod 2>/dev/null | grep -q '^dvb_usb_rtl28xxu'; then
+		modprobe -r dvb_usb_rtl28xxu 2>/dev/null || true
+	fi
+	getent passwd dump1090 >/dev/null 2>&1 || return 0
+	for group in plugdev dialout; do
+		getent group "${group}" >/dev/null 2>&1 || continue
+		id -nG dump1090 2>/dev/null | tr ' ' '
+' | grep -qx "${group}" && continue
+		usermod -a -G "${group}" dump1090 || true
+	done
+}
+
 ensure_beast_serial_access()
 {
 	# The packaged udev rule only grants the beast service account access to
@@ -376,6 +399,9 @@ apply_adsb_services()
 
 	systemctl enable dump1090-mutability.service >/dev/null 2>&1 || true
 	systemctl restart dump1090-mutability.service >/dev/null 2>&1 || true
+	if [[ ${receiver_type} == "rtl-sdr" ]]; then
+		ensure_rtlsdr_access
+	fi
 	if [[ ${receiver_type} == "mode-s-beast" ]]; then
 		ensure_beast_serial_access
 		systemctl enable beast-splitter.service >/dev/null 2>&1 || true

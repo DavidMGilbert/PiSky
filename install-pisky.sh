@@ -749,6 +749,53 @@ grant_beast_serial_access()
 	done
 }
 
+#
+# Make an RTL-SDR dongle usable by the decoder.
+#
+# Two things stop a working dongle producing data, and both look identical
+# from the interface: the receiver is detected but the feed is stale.
+#
+# First, Linux claims RTL2832U devices for the DVB-T television driver as soon
+# as they are plugged in. While dvb_usb_rtl28xxu holds the device, dump1090
+# cannot open it. The rtl-sdr package ships a blacklist, but a blacklist only
+# governs future loads, so the module already resident has to be removed.
+#
+# Second, dump1090-mutability runs as its own dump1090 account, and the udev
+# rules that grant access to the dongle do so through the plugdev group.
+#
+grant_rtlsdr_access()
+{
+	local blacklist="/etc/modprobe.d/pisky-rtlsdr-blacklist.conf"
+	if [[ ! -f ${blacklist} ]]; then
+		local rendered
+		rendered="$(mktemp)"
+		cat > "${rendered}" <<-'EOF'
+			# Keep the DVB-T driver away from RTL2832U dongles so PiSky's ADS-B
+			# decoder can claim them. Written by install-pisky.sh.
+			blacklist dvb_usb_rtl28xxu
+			blacklist rtl2832
+			blacklist rtl2830
+		EOF
+		run_root install -m 0644 -o root -g root "${rendered}" "${blacklist}"
+		rm -f -- "${rendered}"
+	fi
+
+	# Remove it now as well, so a dongle already claimed becomes usable without
+	# waiting for a reboot.
+	if [[ ${DRY_RUN} != "true" ]] && lsmod | grep -q '^dvb_usb_rtl28xxu'; then
+		log "Releasing the RTL-SDR from the DVB-T driver."
+		run_root modprobe -r dvb_usb_rtl28xxu 2>/dev/null || true
+	fi
+
+	if getent passwd dump1090 >/dev/null 2>&1; then
+		for group in plugdev dialout; do
+			if getent group "${group}" >/dev/null 2>&1; then
+				run_root usermod -a -G "${group}" dump1090
+			fi
+		done
+	fi
+}
+
 install_adsb()
 {
 	[[ ${WITH_ADSB} == "true" ]] || {
@@ -761,6 +808,7 @@ install_adsb()
 		dump1090-mutability rtl-sdr
 	install_beast_splitter
 	grant_beast_serial_access
+	grant_rtlsdr_access
 	run_root install -d -m 0755 /var/lib/pisky/flights
 	run_root install -d -m 0755 /etc/systemd/system/beast-splitter.service.d
 	run_root install -m 0644 \
