@@ -1,0 +1,3 @@
+# PiSky WebUI access is restricted to the validated piskyctl command surface.
+# piskyctl independently allow-lists every configuration target and service.
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/piskyctl *

@@ -1,0 +1,21 @@
+[Unit]
+Description=PiSky local WeeWX weather service
+Documentation=https://weewx.com/docs/latest/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=weewx
+Group=weewx
+ExecStart=XX_WEEWX_VENV_XX/bin/weewxd --config=XX_WEEWX_CONFIG_XX
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=XX_WEEWX_DATA_XX /var/lib/pisky/weather /var/www/html/weewx
+
+[Install]
+WantedBy=multi-user.target

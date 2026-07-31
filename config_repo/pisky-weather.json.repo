@@ -1,0 +1,16 @@
+{
+	"enabled": true,
+	"provider": "open-meteo",
+	"display_units": "metric",
+	"open_meteo": {
+		"latitude": "",
+		"longitude": "",
+		"timezone": "auto",
+		"cache_seconds": 300
+	},
+	"weewx": {
+		"file": "/var/lib/pisky/weather/current.json",
+		"url": "",
+		"cache_seconds": 10
+	}
+}

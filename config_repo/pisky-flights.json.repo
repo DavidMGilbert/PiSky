@@ -1,0 +1,56 @@
+{
+	"enabled": true,
+	"decoder": "Local ADS-B receiver",
+	"aircraft_file": "/run/dump1090-mutability/aircraft.json",
+	"receiver_file": "",
+	"aircraft_url": "",
+	"latitude": "",
+	"longitude": "",
+	"range_km": 160,
+	"max_aircraft": 60,
+	"max_seen_seconds": 15,
+	"receiver": {
+		"type": "rtl-sdr",
+		"rtl_sdr": {
+			"device": "0",
+			"gain": "max",
+			"ppm": 0
+		},
+		"beast": {
+			"serial_device": "/dev/beast",
+			"baud": "auto",
+			"output_format": "beast-classic"
+		}
+	},
+	"decoder_options": {
+		"fix_crc": true,
+		"max_range_nm": 300,
+		"json_interval_seconds": 1,
+		"location_accuracy": "none"
+	},
+	"network": {
+		"bind_address": "127.0.0.1",
+		"raw_input_port": 30001,
+		"raw_output_port": 30002,
+		"sbs_output_port": 30003,
+		"beast_input_port": 30004,
+		"beast_output_port": 30005
+	},
+	"coverage_map": {
+		"enabled": true,
+		"zoom": 8,
+		"public": false,
+		"latitude": "",
+		"longitude": ""
+	},
+	"sharing": {
+		"flightaware": {
+			"enabled": false,
+			"site_id": ""
+		},
+		"flightradar24": {
+			"enabled": false,
+			"radar_id": ""
+		}
+	}
+}

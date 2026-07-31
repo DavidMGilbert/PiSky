@@ -1,0 +1,972 @@
+#!/bin/bash
+#
+# Narrow privileged control surface used by the authenticated PiSky WebUI.
+# Copyright (c) 2026 David Gilbert
+# SPDX-License-Identifier: MIT
+
+set -Eeuo pipefail
+umask 027
+
+readonly CONFIG_FILE="/etc/pisky/pisky.conf"
+readonly CONTROL_VERSION="4"
+readonly DUMP1090_CONFIG="/etc/default/dump1090-mutability"
+readonly BEAST_SPLITTER_CONFIG="/etc/default/beast-splitter"
+readonly WEEWX_STATION_CONFIG="/etc/pisky/weewx-station.json"
+# Holds the remote history database credentials. Kept out of
+# pisky-weather.json because that file is merged into structures the web
+# interface renders, and a password must never travel that path.
+readonly HISTORY_CONFIG="/etc/pisky/history.json"
+
+die()
+{
+	echo "ERROR: $*" >&2
+	exit 1
+}
+
+require_root()
+{
+	[[ ${EUID} -eq 0 ]] || die "piskyctl must be run as root."
+}
+
+load_config()
+{
+	[[ -f ${CONFIG_FILE} ]] || die "PiSky is not installed (${CONFIG_FILE} is missing)."
+	[[ ! -L ${CONFIG_FILE} ]] || die "Refusing a symbolic-link control configuration."
+	# shellcheck source=/dev/null
+	source "${CONFIG_FILE}"
+	: "${PISKY_ROOT:?Missing PISKY_ROOT}"
+	: "${ALLSKY_CONFIG:?Missing ALLSKY_CONFIG}"
+	: "${ALLSKY_OWNER:?Missing ALLSKY_OWNER}"
+	: "${WEBSERVER_GROUP:?Missing WEBSERVER_GROUP}"
+	: "${INCOMING_DIR:?Missing INCOMING_DIR}"
+	: "${BACKUP_DIR:?Missing BACKUP_DIR}"
+	: "${WEEWX_CONFIG:?Missing WEEWX_CONFIG}"
+	: "${WEEWX_OUTPUT:?Missing WEEWX_OUTPUT}"
+	: "${WEEWX_VENV:=/opt/pisky/weewx-venv}"
+}
+
+require_tools()
+{
+	command -v jq >/dev/null 2>&1 || die "jq is required."
+	command -v realpath >/dev/null 2>&1 || die "realpath is required."
+}
+
+validate_weather()
+{
+	local file="${1}"
+	jq -e '
+		type == "object"
+		and (.enabled | type == "boolean")
+		and (.provider == "open-meteo" or .provider == "weewx")
+		and ((.display_units // "metric") == "metric"
+			or (.display_units // "metric") == "imperial")
+		and (.open_meteo | type == "object")
+		and (.weewx | type == "object")
+		and (.open_meteo.latitude | type == "number" or type == "string")
+		and (.open_meteo.longitude | type == "number" or type == "string")
+		and (.open_meteo.timezone | type == "string" and length <= 80)
+		and (.open_meteo.cache_seconds | type == "number" and . >= 60 and . <= 3600)
+		and (.weewx.file | type == "string" and length <= 512)
+		and (.weewx.url | type == "string" and length <= 1024)
+		and (.weewx.cache_seconds | type == "number" and . >= 2 and . <= 3600)
+		and ((.public_metrics // {}) | type == "object")
+		and ((.public_metrics // {}) | length <= 120)
+		and ((.public_metrics // {}) | keys_unsorted
+			| all(test("^[a-z0-9_]{1,40}$")))
+		and ((.public_metrics // {}) | [.[]] | all(type == "boolean"))
+	' "${file}" >/dev/null || die "Weather configuration failed validation."
+}
+
+validate_flights()
+{
+	local file="${1}"
+	jq -e '
+		type == "object"
+		and (.enabled | type == "boolean")
+		and (.decoder | type == "string" and length <= 120)
+		and (.aircraft_file | type == "string" and length <= 512)
+		and (.receiver_file | type == "string" and length <= 512)
+		and (.aircraft_url | type == "string" and length <= 1024)
+		and (.latitude | type == "number" or type == "string")
+		and (.longitude | type == "number" or type == "string")
+		and (.range_km | type == "number" and . >= 10 and . <= 1000)
+		and (.max_aircraft | type == "number" and . >= 1 and . <= 500)
+		and (.max_seen_seconds | type == "number" and . >= 1 and . <= 300)
+		and (.receiver | type == "object")
+		and (.receiver.type == "rtl-sdr" or .receiver.type == "mode-s-beast")
+		and (.receiver.rtl_sdr | type == "object")
+		and (.receiver.rtl_sdr.device
+			| type == "string" and test("^[A-Za-z0-9_.-]{1,64}$"))
+		and (.receiver.rtl_sdr.gain
+			| type == "string" and test("^(max|agc|[0-9]{1,2}([.][0-9])?)$"))
+		and (.receiver.rtl_sdr.ppm
+			| type == "number" and . == floor and . >= -250 and . <= 250)
+		and (.receiver.beast | type == "object")
+		and (.receiver.beast.serial_device
+			| type == "string"
+			and test("^/dev/(beast|tty(USB|ACM)[0-9]{1,3})$"))
+		and (.receiver.beast.baud
+			| type == "string"
+			and test("^(auto|115200|460800|921600|1000000|2000000|3000000)$"))
+		and (.receiver.beast.output_format
+			== "radarcape-gps"
+			or .receiver.beast.output_format == "radarcape"
+			or .receiver.beast.output_format == "beast-classic")
+		and (.decoder_options | type == "object")
+		and (.decoder_options.fix_crc | type == "boolean")
+		and (.decoder_options.max_range_nm
+			| type == "number" and . >= 10 and . <= 500)
+		and (.decoder_options.json_interval_seconds
+			| type == "number" and . == floor and . >= 1 and . <= 60)
+		and (.decoder_options.location_accuracy
+			== "none"
+			or .decoder_options.location_accuracy == "approximate"
+			or .decoder_options.location_accuracy == "exact")
+		and (.network | type == "object")
+		and (.network.bind_address == "127.0.0.1"
+			or .network.bind_address == "0.0.0.0")
+		and ([.network.raw_input_port, .network.raw_output_port,
+			.network.sbs_output_port, .network.beast_input_port,
+			.network.beast_output_port]
+			| all(type == "number" and . == floor and . >= 1024 and . <= 65535))
+		and ([.network.raw_input_port, .network.raw_output_port,
+			.network.sbs_output_port, .network.beast_input_port,
+			.network.beast_output_port] | length == (unique | length))
+		and (.coverage_map | type == "object")
+		and (.coverage_map.enabled | type == "boolean")
+		and (.coverage_map.public | type == "boolean")
+		and (.coverage_map.zoom
+			| type == "number" and . == floor
+			and (. == 0 or (. >= 3 and . <= 16)))
+		and ((.coverage_map.latitude // "") | type == "number" or type == "string")
+		and ((.coverage_map.longitude // "") | type == "number" or type == "string")
+		and (.sharing | type == "object")
+		and (.sharing.flightaware.enabled | type == "boolean")
+		and (.sharing.flightaware.site_id | type == "string" and length <= 160)
+		and (.sharing.flightradar24.enabled | type == "boolean")
+		and (.sharing.flightradar24.radar_id | type == "string" and length <= 160)
+	' "${file}" >/dev/null || die "Flight configuration failed validation."
+}
+
+validate_local_path()
+{
+	local path="${1}"
+	local kind="${2}"
+	local label="${3}"
+
+	[[ -z ${path} ]] && return 0
+	[[ ${path} == /* ]] || die "${label} must be an absolute path."
+	[[ ${path} != *"/../"* && ${path} != */.. && ${path} != *"/./"* ]] ||
+		die "${label} contains an unsafe path segment."
+
+	case "${kind}:${path}" in
+		weather:/var/lib/pisky/weather/*|\
+		weather:/var/lib/weewx/*|\
+		weather:/var/www/html/weewx/*)
+			;;
+		flights:/run/dump1090-mutability/*|\
+		flights:/var/run/dump1090-mutability/*|\
+		flights:/run/dump1090-fa/*|\
+		flights:/var/run/dump1090-fa/*|\
+		flights:/run/readsb/*|\
+		flights:/var/run/readsb/*|\
+		flights:/run/dump1090/*|\
+		flights:/var/run/dump1090/*|\
+		flights:/run/beast-splitter/*|\
+		flights:/var/lib/pisky/flights/*)
+			;;
+		*)
+			die "${label} is outside PiSky's allowed local data directories."
+			;;
+	esac
+}
+
+validate_config_paths()
+{
+	local weather="${1}"
+	local flights="${2}"
+	local weather_file aircraft_file receiver_file
+
+	weather_file="$(jq -r '.weewx.file' "${weather}")"
+	aircraft_file="$(jq -r '.aircraft_file' "${flights}")"
+	receiver_file="$(jq -r '.receiver_file' "${flights}")"
+	validate_local_path "${weather_file}" weather "WeeWX JSON file"
+	validate_local_path "${aircraft_file}" flights "Aircraft JSON file"
+	validate_local_path "${receiver_file}" flights "Receiver JSON file"
+}
+
+validate_staged_file()
+{
+	local supplied="${1}"
+	local resolved owner_uid web_uid
+
+	[[ -f ${supplied} && ! -L ${supplied} ]] || die "Staged configuration is not a regular file."
+	resolved="$(realpath -- "${supplied}")" || die "Unable to resolve staged configuration."
+	[[ ${resolved} == "${INCOMING_DIR}/"* ]] || die "Staged configuration is outside the PiSky incoming directory."
+	owner_uid="$(stat -c '%u' -- "${resolved}")"
+	web_uid="$(id -u www-data)"
+	[[ ${owner_uid} == "${web_uid}" ]] || die "Staged configuration has an unexpected owner."
+	[[ $(stat -c '%s' -- "${resolved}") -le 1048576 ]] || die "Staged configuration is too large."
+	printf '%s\n' "${resolved}"
+}
+
+backup_file()
+{
+	local source="${1}"
+	local label="${2}"
+	local stamp
+	[[ -e ${source} ]] || return 0
+	stamp="$(date -u +'%Y%m%dT%H%M%SZ')"
+	install -m 0640 -- "${source}" "${BACKUP_DIR}/${label}-${stamp}"
+}
+
+install_json()
+{
+	local source="${1}"
+	local destination="${2}"
+	local label="${3}"
+	local temporary
+
+	backup_file "${destination}" "${label}"
+	temporary="$(mktemp "${ALLSKY_CONFIG}/.${label}.XXXXXX")"
+	trap 'rm -f -- "${temporary:-}"' RETURN
+	install -m 0660 -o "${ALLSKY_OWNER}" -g "${WEBSERVER_GROUP}" -- "${source}" "${temporary}"
+	mv -f -- "${temporary}" "${destination}"
+	trap - RETURN
+}
+
+write_adsb_configuration()
+{
+	local flights="${1}"
+	local enabled receiver_type device gain ppm fix_crc latitude longitude
+	local max_range json_interval location_accuracy bind_address
+	local raw_input raw_output sbs_output beast_input beast_output
+	local serial_device baud output_format beast_settings baud_option beast_enabled
+	local dump_temporary beast_temporary
+
+	enabled="$(jq -r '.enabled' "${flights}")"
+	receiver_type="$(jq -r '.receiver.type' "${flights}")"
+	device="$(jq -r '.receiver.rtl_sdr.device' "${flights}")"
+	gain="$(jq -r '.receiver.rtl_sdr.gain' "${flights}")"
+	ppm="$(jq -r '.receiver.rtl_sdr.ppm' "${flights}")"
+	fix_crc="$(jq -r '.decoder_options.fix_crc' "${flights}")"
+	latitude="$(jq -r '.latitude | if type == "number" then tostring else . end' "${flights}")"
+	longitude="$(jq -r '.longitude | if type == "number" then tostring else . end' "${flights}")"
+	max_range="$(jq -r '.decoder_options.max_range_nm' "${flights}")"
+	json_interval="$(jq -r '.decoder_options.json_interval_seconds' "${flights}")"
+	location_accuracy="$(jq -r '.decoder_options.location_accuracy' "${flights}")"
+	bind_address="$(jq -r '.network.bind_address' "${flights}")"
+	raw_input="$(jq -r '.network.raw_input_port' "${flights}")"
+	raw_output="$(jq -r '.network.raw_output_port' "${flights}")"
+	sbs_output="$(jq -r '.network.sbs_output_port' "${flights}")"
+	beast_input="$(jq -r '.network.beast_input_port' "${flights}")"
+	beast_output="$(jq -r '.network.beast_output_port' "${flights}")"
+	serial_device="$(jq -r '.receiver.beast.serial_device' "${flights}")"
+	baud="$(jq -r '.receiver.beast.baud' "${flights}")"
+	output_format="$(jq -r '.receiver.beast.output_format' "${flights}")"
+
+	command -v dump1090-mutability >/dev/null 2>&1 ||
+		[[ ${enabled} != "true" ]] ||
+		die "Local ADS-B support is not installed. Re-run install-pisky.sh with --with-adsb."
+	if [[ ${receiver_type} == "mode-s-beast" && ${enabled} == "true" ]]; then
+		command -v beast-splitter >/dev/null 2>&1 ||
+			die "Mode-S Beast support is not installed. Re-run install-pisky.sh with --with-adsb."
+	fi
+	if ! command -v dump1090-mutability >/dev/null 2>&1; then
+		return 0
+	fi
+
+	if [[ ${receiver_type} == "mode-s-beast" ]]; then
+		device="none"
+	fi
+	[[ ${fix_crc} == "true" ]] && fix_crc="yes" || fix_crc="no"
+	[[ ${enabled} == "true" ]] && enabled="yes" || enabled="no"
+
+	dump_temporary="$(mktemp /etc/default/.dump1090-mutability.pisky.XXXXXX)"
+	beast_temporary="$(mktemp /etc/default/.beast-splitter.pisky.XXXXXX)"
+	trap 'rm -f -- "${dump_temporary:-}" "${beast_temporary:-}"' RETURN
+	{
+		printf '%s\n' \
+			"# Managed by PiSky. Configure this receiver in /admin/?page=pisky_setup." \
+			"START_DUMP1090=\"${enabled}\"" \
+			'DUMP1090_USER="dump1090"' \
+			'LOGFILE="/var/log/dump1090-mutability.log"' \
+			"DEVICE=\"${device}\"" \
+			"GAIN=\"${gain}\"" \
+			"PPM=\"${ppm}\"" \
+			"FIX_CRC=\"${fix_crc}\"" \
+			"LAT=\"${latitude}\"" \
+			"LON=\"${longitude}\"" \
+			"MAX_RANGE=\"${max_range}\"" \
+			"RAW_INPUT_PORT=\"${raw_input}\"" \
+			"RAW_OUTPUT_PORT=\"${raw_output}\"" \
+			"SBS_OUTPUT_PORT=\"${sbs_output}\"" \
+			"BEAST_INPUT_PORT=\"${beast_input}\"" \
+			"BEAST_OUTPUT_PORT=\"${beast_output}\"" \
+			'NET_HEARTBEAT="60"' \
+			'NET_OUTPUT_SIZE="500"' \
+			'NET_OUTPUT_INTERVAL="1"' \
+			'NET_BUFFER="65536"' \
+			"NET_BIND_ADDRESS=\"${bind_address}\"" \
+			'STATS_INTERVAL="60"' \
+			'JSON_DIR="/run/dump1090-mutability"' \
+			"JSON_INTERVAL=\"${json_interval}\"" \
+			"JSON_LOCATION_ACCURACY=\"${location_accuracy}\"" \
+			'LOG_DECODED_MESSAGES="no"' \
+			'EXTRA_ARGS=""'
+	} > "${dump_temporary}"
+
+	case "${output_format}" in
+		radarcape-gps) beast_settings="RG" ;;
+		radarcape) beast_settings="R" ;;
+		beast-classic) beast_settings="B" ;;
+	esac
+	baud_option=""
+	[[ ${baud} == "auto" ]] || baud_option=" --fixed-baud ${baud}"
+	beast_enabled="no"
+	if [[ ${enabled} == "yes" && ${receiver_type} == "mode-s-beast" ]]; then
+		beast_enabled="yes"
+	fi
+	{
+		printf '%s\n' \
+			"# Managed by PiSky. Configure this receiver in /admin/?page=pisky_setup." \
+			"ENABLED=\"${beast_enabled}\"" \
+			"INPUT_OPTIONS=\"--serial ${serial_device}${baud_option}\"" \
+			"OUTPUT_OPTIONS=\"--connect 127.0.0.1:${beast_input}:${beast_settings}\""
+	} > "${beast_temporary}"
+
+	backup_file "${DUMP1090_CONFIG}" "dump1090-mutability"
+	backup_file "${BEAST_SPLITTER_CONFIG}" "beast-splitter"
+	install -m 0644 -o root -g root -- "${dump_temporary}" "${DUMP1090_CONFIG}"
+	install -m 0644 -o root -g root -- "${beast_temporary}" "${BEAST_SPLITTER_CONFIG}"
+	rm -f -- "${dump_temporary}" "${beast_temporary}"
+	trap - RETURN
+}
+
+ensure_beast_serial_access()
+{
+	# The packaged udev rule only grants the beast service account access to
+	# /dev/beast, and only for receivers reporting a "Mode-S_Beast*" USB model.
+	# PiSky also permits /dev/ttyUSB* and /dev/ttyACM*, which are root:dialout,
+	# so without dialout membership beast-splitter fails to open the port. Older
+	# installations predate the installer granting this, so repair it here.
+	local group
+	getent passwd beast >/dev/null 2>&1 || return 0
+	for group in dialout plugdev; do
+		getent group "${group}" >/dev/null 2>&1 || continue
+		id -nG beast 2>/dev/null | tr ' ' '\n' | grep -qx "${group}" && continue
+		usermod -a -G "${group}" beast || true
+	done
+}
+
+apply_adsb_services()
+{
+	local flights="${1}"
+	local enabled receiver_type
+	enabled="$(jq -r '.enabled' "${flights}")"
+	receiver_type="$(jq -r '.receiver.type' "${flights}")"
+	command -v dump1090-mutability >/dev/null 2>&1 || return 0
+
+	systemctl daemon-reload
+	if [[ ${enabled} != "true" ]]; then
+		systemctl disable --now dump1090-mutability.service >/dev/null 2>&1 || true
+		systemctl disable --now beast-splitter.service >/dev/null 2>&1 || true
+		return
+	fi
+
+	systemctl enable dump1090-mutability.service >/dev/null 2>&1 || true
+	systemctl restart dump1090-mutability.service >/dev/null 2>&1 || true
+	if [[ ${receiver_type} == "mode-s-beast" ]]; then
+		ensure_beast_serial_access
+		systemctl enable beast-splitter.service >/dev/null 2>&1 || true
+		systemctl restart beast-splitter.service >/dev/null 2>&1 || true
+	else
+		systemctl disable --now beast-splitter.service >/dev/null 2>&1 || true
+	fi
+}
+
+apply_config_set()
+{
+	local weather flights
+	weather="$(validate_staged_file "${1}")"
+	flights="$(validate_staged_file "${2}")"
+	validate_weather "${weather}"
+	validate_flights "${flights}"
+	validate_config_paths "${weather}" "${flights}"
+	write_adsb_configuration "${flights}"
+	install_json "${weather}" "${ALLSKY_CONFIG}/pisky-weather.json" "pisky-weather"
+	install_json "${flights}" "${ALLSKY_CONFIG}/pisky-flights.json" "pisky-flights"
+	apply_adsb_services "${flights}"
+	apply_sample_timer
+	rm -f -- "${weather}" "${flights}"
+	echo "PiSky observatory and local receiver configuration saved."
+}
+
+sync_adsb()
+{
+	local flights="${ALLSKY_CONFIG}/pisky-flights.json"
+	[[ -r ${flights} ]] || die "PiSky flight configuration is missing."
+	validate_flights "${flights}"
+	write_adsb_configuration "${flights}"
+	apply_adsb_services "${flights}"
+	echo "Local ADS-B receiver configuration synchronised."
+}
+
+#
+# The directory layout PiSky needs, in one place.
+#
+# The installer and the repair action both use this, so there is a single
+# definition of what "correctly installed storage" means. It is idempotent:
+# running it against a healthy system changes nothing, and running it against a
+# system missing a directory, or with one left owned by the wrong user after a
+# manual change, puts it right.
+#
+# Format: path:mode:owner:group
+pisky_storage_layout()
+{
+	local web_user="www-data"
+	cat <<-EOF
+		/etc/pisky:0755:root:root
+		/var/lib/pisky:0755:root:root
+		/var/lib/pisky/weather:0755:root:root
+		/var/lib/pisky/flights:0755:root:root
+		/var/lib/pisky/content:0750:${web_user}:${web_user}
+		/var/lib/pisky/content/media:0750:${web_user}:${web_user}
+		/var/lib/pisky/history:0750:${web_user}:${web_user}
+		/var/lib/pisky/incoming:0700:${web_user}:${web_user}
+		/var/lib/pisky/api:0750:${web_user}:${web_user}
+		/var/lib/pisky/backups:0750:root:${WEBSERVER_GROUP}
+	EOF
+}
+
+ensure_storage()
+{
+	local path mode owner group repaired=0
+	while IFS=: read -r path mode owner group; do
+		[[ -n ${path} ]] || continue
+		getent passwd "${owner}" >/dev/null 2>&1 ||
+			die "The account '${owner}' does not exist."
+		getent group "${group}" >/dev/null 2>&1 ||
+			die "The group '${group}' does not exist."
+		if [[ ! -d ${path} ]]; then
+			install -d -m "${mode}" -o "${owner}" -g "${group}" -- "${path}"
+			repaired=$((repaired + 1))
+			continue
+		fi
+		# Existing directories are corrected rather than left alone, because a
+		# wrong owner fails exactly like a missing directory.
+		chown "${owner}:${group}" -- "${path}"
+		chmod "${mode}" -- "${path}"
+	done < <(pisky_storage_layout)
+
+	if [[ ${repaired} -gt 0 ]]; then
+		echo "PiSky storage repaired; ${repaired} directory/directories created."
+	else
+		echo "PiSky storage is present and ownership has been reasserted."
+	fi
+}
+
+#
+# Rewrite the sampler timer from the configured interval.
+#
+# Sampling used to happen only when a page was loaded, which meant a station
+# nobody visited recorded nothing and a busy one recorded only while it was
+# being watched. The timer makes the series even regardless of traffic, and it
+# is rewritten here so changing the interval in the interface actually
+# reschedules rather than needing a shell.
+#
+apply_sample_timer()
+{
+	local interval unit
+	unit="/etc/systemd/system/pisky-sample.timer"
+	[[ -f ${unit} ]] || return 0
+
+	interval=300
+	if [[ -r ${HISTORY_CONFIG} ]]; then
+		interval="$(jq -r '.sample_interval_seconds // 300' "${HISTORY_CONFIG}")"
+	fi
+	[[ ${interval} =~ ^[0-9]+$ ]] || interval=300
+	(( interval >= 60 )) || interval=60
+	(( interval <= 3600 )) || interval=3600
+
+	local temporary
+	temporary="$(mktemp /etc/systemd/system/.pisky-sample.XXXXXX)"
+	sed -e "s/^OnUnitActiveSec=.*/OnUnitActiveSec=${interval}s/" "${unit}" > "${temporary}"
+	install -m 0644 -o root -g root -- "${temporary}" "${unit}"
+	rm -f -- "${temporary}"
+
+	systemctl daemon-reload
+	# Weather being disabled entirely is the only reason not to sample; the
+	# local rollup is worth keeping even without a remote database.
+	if jq -e '.enabled == true' "${ALLSKY_CONFIG}/pisky-weather.json" >/dev/null 2>&1; then
+		systemctl enable --now pisky-sample.timer >/dev/null 2>&1 || true
+	else
+		systemctl disable --now pisky-sample.timer >/dev/null 2>&1 || true
+	fi
+}
+
+validate_history()
+{
+	local file="${1}"
+	jq -e '
+		type == "object"
+		and (.enabled | type == "boolean")
+		and (.driver == "mysql")
+		and (.host | type == "string" and length <= 255
+			and (length == 0 or test("^[A-Za-z0-9._-]+$")))
+		and (.port | type == "number" and . == floor and . >= 1 and . <= 65535)
+		and (.database | type == "string" and length <= 64
+			and (length == 0 or test("^[A-Za-z0-9_$-]+$")))
+		and (.user | type == "string" and length <= 64)
+		and (.password | type == "string" and length <= 256)
+		and (.tls | type == "boolean")
+		and (.station | type == "string" and length <= 64
+			and test("^[A-Za-z0-9_.-]*$"))
+		and (.sample_interval_seconds
+			| type == "number" and . >= 60 and . <= 3600)
+		and (.retain_days | type == "number" and . >= 7 and . <= 3650)
+	' "${file}" >/dev/null || die "History configuration failed validation."
+
+	# Enabling the remote store without somewhere to send data would fail
+	# silently on every write, so require the connection details up front.
+	local enabled host database user
+	enabled="$(jq -r '.enabled' "${file}")"
+	host="$(jq -r '.host' "${file}")"
+	database="$(jq -r '.database' "${file}")"
+	user="$(jq -r '.user' "${file}")"
+	if [[ ${enabled} == "true" ]]; then
+		[[ -n ${host} ]] || die "A history database host is required."
+		[[ -n ${database} ]] || die "A history database name is required."
+		[[ -n ${user} ]] || die "A history database user is required."
+	fi
+}
+
+apply_history()
+{
+	local source temporary existing password
+	source="$(validate_staged_file "${1}")"
+
+	# An empty password means "keep the stored one", so an operator can edit
+	# the host or database without re-entering the secret, and so the web
+	# interface never has to read it back in order to save the form.
+	password="$(jq -r '.password' "${source}")"
+	if [[ -z ${password} && -r ${HISTORY_CONFIG} ]]; then
+		existing="$(jq -r '.password // ""' "${HISTORY_CONFIG}")"
+		if [[ -n ${existing} ]]; then
+			temporary="$(mktemp /etc/pisky/.history.XXXXXX)"
+			jq --arg password "${existing}" '.password = $password' \
+				"${source}" > "${temporary}"
+			mv -f -- "${temporary}" "${source}"
+		fi
+	fi
+
+	validate_history "${source}"
+	backup_file "${HISTORY_CONFIG}" "history"
+	# Readable by the web server so PHP can connect, writable only by root.
+	install -m 0640 -o root -g www-data -- "${source}" "${HISTORY_CONFIG}"
+	rm -f -- "${source}"
+	apply_sample_timer
+	echo "History database configuration saved."
+}
+
+# The password is never returned; the interface only needs to know whether one
+# is stored so it can show the field as already set.
+read_history()
+{
+	if [[ ! -r ${HISTORY_CONFIG} ]]; then
+		echo '{"configured":false}'
+		return
+	fi
+	jq -c '{
+		configured: true,
+		enabled: .enabled, driver: .driver, host: .host, port: .port,
+		database: .database, user: .user, tls: .tls, station: .station,
+		sample_interval_seconds: .sample_interval_seconds,
+		retain_days: .retain_days,
+		password_set: ((.password // "") | length > 0)
+	}' "${HISTORY_CONFIG}"
+}
+
+validate_weewx_config()
+{
+	local file="${1}"
+	[[ $(stat -c '%s' -- "${file}") -le 1048576 ]] || die "WeeWX configuration is too large."
+	grep -q '^[[:space:]]*\[Station\][[:space:]]*$' "${file}" ||
+		die "WeeWX configuration is missing [Station]."
+	grep -q '^[[:space:]]*\[Engine\][[:space:]]*$' "${file}" ||
+		die "WeeWX configuration is missing [Engine]."
+	if [[ $(wc -c < "${file}") -ne $(tr -d '\000' < "${file}" | wc -c) ]]; then
+		die "WeeWX configuration contains a NUL byte."
+	fi
+}
+
+validate_weewx_station()
+{
+	local file="${1}"
+	jq -e '
+		type == "object"
+		and (.preset == "ecowitt"
+			or .preset == "wu-client"
+			or .preset == "observer")
+		and (.port
+			| type == "number" and . == floor and . >= 1024 and . <= 65535)
+		and (.hardware_name
+			| type == "string"
+			and test("^[A-Za-z0-9 ._()+-]{1,80}$"))
+		and (.enable_service | type == "boolean")
+		and (.use_as_provider | type == "boolean")
+		and ((.use_as_provider == false) or (.enable_service == true))
+	' "${file}" >/dev/null
+}
+
+configure_weewx_station()
+{
+	local source preset port hardware_name enable_service use_as_provider current_provider
+	local temporary helper weewx_data weather_source weather_temporary
+	source="$(validate_staged_file "${1}")"
+	validate_weewx_station "${source}" ||
+		die "WeeWX station preset failed validation."
+	[[ -e ${WEEWX_CONFIG} ]] || die "WeeWX has not been installed by PiSky."
+	[[ -x ${WEEWX_VENV}/bin/python ]] ||
+		die "The PiSky WeeWX environment is incomplete. Re-run install-pisky.sh."
+	[[ -x ${WEEWX_VENV}/bin/weectl ]] ||
+		die "The PiSky WeeWX tools are incomplete. Re-run install-pisky.sh."
+	weewx_data="$(dirname "${WEEWX_CONFIG}")"
+	[[ -f ${weewx_data}/bin/user/interceptor.py ]] ||
+		die "The curated Interceptor driver is not installed. Re-run install-pisky.sh."
+	helper="${PISKY_ROOT}/integrations/weewx/configure_station.py"
+	[[ -r ${helper} ]] || die "The PiSky station preset helper is missing."
+
+	preset="$(jq -r '.preset' "${source}")"
+	port="$(jq -r '.port' "${source}")"
+	hardware_name="$(jq -r '.hardware_name' "${source}")"
+	enable_service="$(jq -r '.enable_service' "${source}")"
+	use_as_provider="$(jq -r '.use_as_provider' "${source}")"
+
+	backup_file "${WEEWX_CONFIG}" "weewx"
+	temporary="$(mktemp "$(dirname "${WEEWX_CONFIG}")/.weewx-preset.XXXXXX")"
+	trap 'rm -f -- "${temporary:-}"' RETURN
+	install -m 0600 -o root -g root -- "${WEEWX_CONFIG}" "${temporary}"
+	"${WEEWX_VENV}/bin/python" "${helper}" \
+		--config "${temporary}" \
+		--preset "${preset}" \
+		--port "${port}" \
+		--hardware-name "${hardware_name}"
+	validate_weewx_config "${temporary}"
+	chown weewx:weewx -- "${temporary}"
+	chmod 0640 -- "${temporary}"
+	mv -f -- "${temporary}" "${WEEWX_CONFIG}"
+	backup_file "${WEEWX_STATION_CONFIG}" "weewx-station"
+	install -m 0640 -o root -g root -- "${source}" "${WEEWX_STATION_CONFIG}"
+	rm -f -- "${source}"
+	trap - RETURN
+
+	if [[ ${enable_service} == "true" ]]; then
+		if ! systemctl enable --now pisky-weewx.service; then
+			die "Station settings were saved, but WeeWX did not start. Check the station status and service log."
+		fi
+	fi
+
+	weather_source="${ALLSKY_CONFIG}/pisky-weather.json"
+	[[ -r ${weather_source} ]] || die "PiSky weather configuration is missing."
+	validate_weather "${weather_source}"
+	current_provider="$(jq -r '.provider' "${weather_source}")"
+	if [[ ${use_as_provider} == "true" || ${current_provider} == "weewx" ]]; then
+		(
+			weather_temporary="$(mktemp)"
+			trap 'rm -f -- "${weather_temporary:-}"' EXIT
+			jq --arg use_as_provider "${use_as_provider}" '
+				if $use_as_provider == "true" then
+					.enabled = true | .provider = "weewx"
+				elif .provider == "weewx" then
+					.provider = "open-meteo"
+				else
+					.
+				end
+			' \
+				"${weather_source}" > "${weather_temporary}"
+			validate_weather "${weather_temporary}"
+			install_json "${weather_temporary}" "${weather_source}" "pisky-weather"
+		)
+	fi
+
+	if [[ ${enable_service} == "false" ]]; then
+		systemctl disable --now pisky-weewx.service >/dev/null 2>&1 || true
+	fi
+	echo "WeeWX ${preset} station preset saved on listener port ${port}."
+	if [[ ${use_as_provider} == "true" ]]; then
+		echo "PiSky live conditions now use the local WeeWX station."
+	elif [[ ${current_provider} == "weewx" ]]; then
+		echo "PiSky live conditions now use Open-Meteo."
+	fi
+}
+
+apply_weewx()
+{
+	local source temporary
+	source="$(validate_staged_file "${1}")"
+	[[ -e ${WEEWX_CONFIG} ]] || die "WeeWX has not been installed by PiSky."
+	validate_weewx_config "${source}"
+	backup_file "${WEEWX_CONFIG}" "weewx"
+	temporary="$(mktemp "$(dirname "${WEEWX_CONFIG}")/.weewx.conf.XXXXXX")"
+	trap 'rm -f -- "${temporary:-}"' RETURN
+	install -m 0640 -o weewx -g weewx -- "${source}" "${temporary}"
+	mv -f -- "${temporary}" "${WEEWX_CONFIG}"
+	rm -f -- "${source}"
+	trap - RETURN
+	systemctl try-restart pisky-weewx.service >/dev/null 2>&1 || true
+	echo "WeeWX configuration saved."
+}
+
+weewx_station_json()
+{
+	local managed='{"preset":"not-configured","port":8000,"hardware_name":"","enable_service":false,"use_as_provider":false}'
+	local driver_installed=false service_active=false output_exists=false data_fresh=false
+	local data_age=null now modified weewx_data
+
+	if [[ -r ${WEEWX_STATION_CONFIG} ]] &&
+		validate_weewx_station "${WEEWX_STATION_CONFIG}" 2>/dev/null; then
+		managed="$(jq -c '.' "${WEEWX_STATION_CONFIG}")"
+	fi
+	weewx_data="$(dirname "${WEEWX_CONFIG}")"
+	[[ -f ${weewx_data}/bin/user/interceptor.py ]] &&
+		driver_installed=true
+	systemctl is-active --quiet pisky-weewx.service && service_active=true
+	if [[ -f ${WEEWX_OUTPUT} ]]; then
+		output_exists=true
+		now="$(date +%s)"
+		modified="$(stat -c '%Y' -- "${WEEWX_OUTPUT}")"
+		data_age=$((now - modified))
+		[[ ${data_age} -ge 0 ]] || data_age=0
+		[[ ${data_age} -le 120 ]] && data_fresh=true
+	fi
+
+	jq -cn \
+		--argjson managed "${managed}" \
+		--argjson driver_installed "${driver_installed}" \
+		--argjson service_active "${service_active}" \
+		--argjson output_exists "${output_exists}" \
+		--argjson data_fresh "${data_fresh}" \
+		--argjson data_age_seconds "${data_age}" \
+		'$managed + {
+			driver_installed:$driver_installed,
+			service_active:$service_active,
+			output_exists:$output_exists,
+			data_fresh:$data_fresh,
+			data_age_seconds:$data_age_seconds
+		}'
+}
+
+test_weewx_station()
+{
+	local station preset age
+	station="$(weewx_station_json)"
+	preset="$(jq -r '.preset' <<< "${station}")"
+	[[ $(jq -r '.driver_installed' <<< "${station}") == "true" ]] ||
+		die "The curated station driver is not installed. Re-run install-pisky.sh."
+	[[ ${preset} != "not-configured" ]] ||
+		die "Choose and save a weather-station preset first."
+	[[ $(jq -r '.service_active' <<< "${station}") == "true" ]] ||
+		die "The station preset is saved, but WeeWX is stopped. Enable it in the station wizard."
+	if [[ $(jq -r '.data_fresh' <<< "${station}") == "true" ]]; then
+		age="$(jq -r '.data_age_seconds' <<< "${station}")"
+		echo "Connection confirmed. PiSky received a WeeWX observation ${age} seconds ago."
+		return 0
+	fi
+	if [[ $(jq -r '.output_exists' <<< "${station}") == "true" ]]; then
+		age="$(jq -r '.data_age_seconds' <<< "${station}")"
+		die "WeeWX is running, but its last PiSky observation is ${age} seconds old. Check the station custom-server settings."
+	fi
+	die "WeeWX is listening, but PiSky has not received a station observation yet. Check the station address, protocol and port."
+}
+
+service_unit()
+{
+	case "${1}" in
+		allsky) echo "allsky.service" ;;
+		weewx) echo "pisky-weewx.service" ;;
+		dump1090-mutability) echo "dump1090-mutability.service" ;;
+		dump1090-fa) echo "dump1090-fa.service" ;;
+		readsb) echo "readsb.service" ;;
+		beast-splitter) echo "beast-splitter.service" ;;
+		piaware) echo "piaware.service" ;;
+		fr24feed) echo "fr24feed.service" ;;
+		*) die "Service '${1}' is not managed by PiSky." ;;
+	esac
+}
+
+service_exists()
+{
+	local unit="${1}"
+	systemctl list-unit-files --type=service --no-legend "${unit}" 2>/dev/null |
+		awk '{print $1}' | grep -Fxq "${unit}"
+}
+
+service_json()
+{
+	local id="${1}"
+	local unit installed=false active=false enabled=false
+	unit="$(service_unit "${id}")"
+	if service_exists "${unit}"; then
+		installed=true
+		systemctl is-active --quiet "${unit}" && active=true
+		systemctl is-enabled --quiet "${unit}" 2>/dev/null && enabled=true
+	fi
+	jq -cn \
+		--arg id "${id}" \
+		--arg unit "${unit}" \
+		--argjson installed "${installed}" \
+		--argjson active "${active}" \
+		--argjson enabled "${enabled}" \
+		'{id:$id,unit:$unit,installed:$installed,active:$active,enabled:$enabled}'
+}
+
+status_json()
+{
+	local allsky weewx weewx_station dump_mutability dump_fa readsb beast_splitter piaware fr24feed
+	allsky="$(service_json allsky)"
+	weewx="$(service_json weewx)"
+	weewx_station="$(weewx_station_json)"
+	dump_mutability="$(service_json dump1090-mutability)"
+	dump_fa="$(service_json dump1090-fa)"
+	readsb="$(service_json readsb)"
+	beast_splitter="$(service_json beast-splitter)"
+	piaware="$(service_json piaware)"
+	fr24feed="$(service_json fr24feed)"
+	jq -cn \
+		--arg version "${PISKY_VERSION:-unknown}" \
+		--arg control_version "${CONTROL_VERSION}" \
+		--argjson allsky "${allsky}" \
+		--argjson weewx "${weewx}" \
+		--argjson weewx_station "${weewx_station}" \
+		--argjson dump_mutability "${dump_mutability}" \
+		--argjson dump_fa "${dump_fa}" \
+		--argjson readsb "${readsb}" \
+		--argjson beast_splitter "${beast_splitter}" \
+		--argjson piaware "${piaware}" \
+		--argjson fr24feed "${fr24feed}" \
+		'{
+			version:$version,
+			control_version:$control_version,
+			weewx_station:$weewx_station,
+			services:{
+				allsky:$allsky,
+				weewx:$weewx,
+				"dump1090-mutability":$dump_mutability,
+				"dump1090-fa":$dump_fa,
+				readsb:$readsb,
+				"beast-splitter":$beast_splitter,
+				piaware:$piaware,
+				fr24feed:$fr24feed
+			}
+		}'
+}
+
+control_service()
+{
+	local id="${1}"
+	local operation="${2}"
+	local unit
+	unit="$(service_unit "${id}")"
+	service_exists "${unit}" || die "${id} is not installed."
+	case "${operation}" in
+		start|stop|restart)
+			systemctl "${operation}" "${unit}"
+			;;
+		enable-start)
+			systemctl enable --now "${unit}"
+			;;
+		disable-stop)
+			systemctl disable --now "${unit}"
+			;;
+		*)
+			die "Service operation '${operation}' is not allowed."
+			;;
+	esac
+	echo "${id}: ${operation} completed."
+}
+
+usage()
+{
+	cat <<'EOF'
+Usage: piskyctl COMMAND [arguments]
+
+Commands used by the PiSky WebUI:
+  status-json
+  apply-config-set WEATHER_JSON FLIGHTS_JSON
+  sync-adsb
+  read-weewx
+  apply-weewx WEEWX_CONF
+  configure-weewx-station PRESET_JSON
+  test-weewx-station
+  apply-history HISTORY_JSON
+  read-history
+  ensure-storage
+  service SERVICE start|stop|restart|enable-start|disable-stop
+EOF
+}
+
+main()
+{
+	[[ $# -ge 1 ]] || { usage >&2; exit 2; }
+	require_root
+	load_config
+	require_tools
+	install -d -m 0750 -o root -g "${WEBSERVER_GROUP}" "${BACKUP_DIR}"
+
+	case "${1}" in
+		status-json)
+			[[ $# -eq 1 ]] || die "status-json takes no arguments."
+			status_json
+			;;
+		apply-config-set)
+			[[ $# -eq 3 ]] || die "apply-config-set requires two staged files."
+			apply_config_set "${2}" "${3}"
+			;;
+		sync-adsb)
+			[[ $# -eq 1 ]] || die "sync-adsb takes no arguments."
+			sync_adsb
+			;;
+		read-weewx)
+			[[ $# -eq 1 ]] || die "read-weewx takes no arguments."
+			[[ -r ${WEEWX_CONFIG} ]] || die "WeeWX has not been installed by PiSky."
+			cat -- "${WEEWX_CONFIG}"
+			;;
+		apply-weewx)
+			[[ $# -eq 2 ]] || die "apply-weewx requires one staged file."
+			apply_weewx "${2}"
+			;;
+		configure-weewx-station)
+			[[ $# -eq 2 ]] || die "configure-weewx-station requires one staged file."
+			configure_weewx_station "${2}"
+			;;
+		test-weewx-station)
+			[[ $# -eq 1 ]] || die "test-weewx-station takes no arguments."
+			test_weewx_station
+			;;
+		ensure-storage)
+			[[ $# -eq 1 ]] || die "ensure-storage takes no arguments."
+			ensure_storage
+			;;
+		apply-history)
+			[[ $# -eq 2 ]] || die "apply-history requires one staged file."
+			apply_history "${2}"
+			;;
+		read-history)
+			[[ $# -eq 1 ]] || die "read-history takes no arguments."
+			read_history
+			;;
+		service)
+			[[ $# -eq 3 ]] || die "service requires a service and operation."
+			control_service "${2}" "${3}"
+			;;
+		--help|-h|help)
+			usage
+			;;
+		*)
+			die "Unknown command '${1}'."
+			;;
+	esac
+}
+
+main "$@"

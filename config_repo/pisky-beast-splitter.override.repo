@@ -1,0 +1,8 @@
+[Unit]
+Description=Mode-S Beast data distributor for PiSky
+Wants=dump1090-mutability.service
+After=dump1090-mutability.service
+
+[Service]
+Restart=on-failure
+RestartSec=5

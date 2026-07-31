@@ -1,0 +1,27 @@
+{
+	"station_name": "Backyard observatory",
+	"observed_at": "2026-07-28T19:42:00+10:00",
+	"units": {
+		"temperature": "°C",
+		"humidity": "%",
+		"pressure": "hPa",
+		"wind_speed": "km/h",
+		"rain": "mm",
+		"cloud_cover": "%",
+		"visibility": "km"
+	},
+	"current": {
+		"temperature": 14.8,
+		"apparent_temperature": 13.9,
+		"dew_point": 9.7,
+		"humidity": 72,
+		"pressure": 1018.4,
+		"wind_speed": 7.2,
+		"wind_gust": 11.4,
+		"wind_direction": 238,
+		"rain": 0,
+		"cloud_cover": 18,
+		"visibility": 22,
+		"condition": "Mostly clear"
+	}
+}

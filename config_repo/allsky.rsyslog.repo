@@ -1,0 +1,5 @@
+if $programname == 'allsky' then /var/log/allsky.log
+&stop
+
+if $programname == 'allskperiodic' then /var/log/allskyperiodic.log
+& stop

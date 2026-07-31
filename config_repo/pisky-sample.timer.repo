@@ -1,0 +1,14 @@
+[Unit]
+Description=Record a PiSky weather sample on a fixed schedule
+Documentation=https://wiki.pisky.space
+
+[Timer]
+# Interval is written by piskyctl from the configured sample interval.
+OnBootSec=2min
+OnUnitActiveSec=XX_PISKY_SAMPLE_INTERVAL_XX
+AccuracySec=15s
+Persistent=false
+Unit=pisky-sample.service
+
+[Install]
+WantedBy=timers.target

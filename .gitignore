@@ -1,0 +1,24 @@
+images/*
+darks/*
+
+# development artifacts
+src/*.a
+__pycache__/
+*.pyc
+*.o
+*.core
+*.gcda
+gmon.out
+.*.sw[pomnq]
+
+# generated binaries
+capture_ZWO
+capture_RPiHQ
+keogram
+startrails
+sunwait
+
+# misc
+.vscode/configurationCache.log
+.vscode/targets.log
+.vscode/dryrun.log

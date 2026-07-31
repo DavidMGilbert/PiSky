@@ -1,0 +1,16 @@
+[Unit]
+Description=PiSky scheduled weather sample
+Documentation=https://wiki.pisky.space
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/php XX_PISKY_ROOT_XX/scripts/pisky-sample.php
+# A provider outage must not mark the unit failed and silence the timer.
+SuccessExitStatus=0
+TimeoutStartSec=60
+Nice=10
+IOSchedulingClass=idle

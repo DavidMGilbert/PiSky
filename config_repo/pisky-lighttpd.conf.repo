@@ -1,0 +1,73 @@
+server.modules = (
+  "mod_expire",
+  "mod_setenv",
+  "mod_indexfile",
+  "mod_access",
+  "mod_alias",
+  "mod_redirect",
+  "mod_rewrite",
+  "mod_cgi"
+)
+
+server.document-root = "XX_PISKY_WEBROOT_XX"
+server.upload-dirs = ( "/var/cache/lighttpd/uploads" )
+server.errorlog = "/var/log/lighttpd/error.log"
+server.pid-file = "/run/lighttpd.pid"
+server.username = "www-data"
+server.groupname = "www-data"
+server.port = 80
+server.tag = "PiSky"
+dir-listing.activate = "disable"
+
+setenv.add-response-header += (
+  "X-Content-Type-Options" => "nosniff",
+  "Referrer-Policy" => "strict-origin-when-cross-origin",
+  "X-Frame-Options" => "SAMEORIGIN"
+)
+setenv.add-environment = (
+  "LANG" => env.LANG,
+  "ALLSKY_HOME" => "XX_PISKY_ROOT_XX/"
+)
+
+alias.url = (
+  "/current/" => "XX_PISKY_TMP_XX/",
+  "/images/" => "XX_PISKY_IMAGES_XX/"
+)
+
+# Clean API routes. /api/v1/weather reaches the same handler as
+# /api/v1/index.php?resource=weather, so published URLs carry no extension
+# while the explicit form keeps working on servers without rewriting.
+url.rewrite-once = (
+  "^/api/v1/?$" => "/api/v1/index.php",
+  "^/api/v1/([a-z0-9_-]+)/?(\?.*)?$" => "/api/v1/index.php?resource=$1&$2"
+)
+
+$HTTP["url"] =~ "^/cgi-bin/" {
+  cgi.assign = ( ".py" => "/usr/bin/python3" )
+  alias.url += ( "/cgi-bin/" => "XX_PISKY_WEBROOT_XX/cgi-bin/" )
+}
+
+$HTTP["url"] =~ "^/current|\\.json$" {
+  setenv.add-response-header += ( "Cache-Control" => "no-cache, proxy-revalidate" )
+}
+
+server.http-parseopts = (
+  "header-strict" => "enable",
+  "host-strict" => "enable",
+  "host-normalize" => "enable",
+  "url-normalize-unreserved" => "enable",
+  "url-normalize-required" => "enable",
+  "url-ctrls-reject" => "enable",
+  "url-path-2f-decode" => "enable",
+  "url-path-dotseg-remove" => "enable"
+)
+
+index-file.names = ( "index.php", "index.html" )
+url.access-deny = ( "~", ".inc", ".repo", ".sh" )
+static-file.exclude-extensions = ( ".php", ".pl", ".fcgi" )
+
+include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
+include_shell "/usr/share/lighttpd/create-mime.conf.pl"
+include "/etc/lighttpd/conf-enabled/*.conf"
+
+server.modules += ( "mod_staticfile" )

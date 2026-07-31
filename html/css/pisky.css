@@ -1,0 +1,5155 @@
+/*
+ * PiSky liquid-glass interface
+ * Copyright (c) 2026 David Gilbert
+ * SPDX-License-Identifier: MIT
+ */
+
+:root {
+	--pisky-bg: #070914;
+	--pisky-bg-raised: #0d1121;
+	--pisky-ink: #f5f7ff;
+	--pisky-muted: #969db4;
+	--pisky-subtle: #697188;
+	--pisky-purple: #9a82f4;
+	--pisky-cyan: #61d9ff;
+	--pisky-green: #5ee6aa;
+	--pisky-orange: #ffbd7a;
+	--pisky-danger: #ff8798;
+	--pisky-glass: rgba(19, 24, 43, 0.64);
+	--pisky-glass-strong: rgba(20, 25, 46, 0.82);
+	--pisky-border: rgba(255, 255, 255, 0.11);
+	--pisky-highlight: rgba(255, 255, 255, 0.18);
+	--pisky-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+	--pisky-cloud-opacity: 0.12;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	min-height: 100%;
+	scroll-behavior: smooth;
+}
+
+body,
+body.light,
+body.dark {
+	min-height: 100vh;
+	margin: 0;
+	background:
+		radial-gradient(circle at 58% -15%, rgba(100, 70, 186, 0.18), transparent 38rem),
+		radial-gradient(circle at 105% 80%, rgba(35, 118, 157, 0.12), transparent 34rem),
+		linear-gradient(145deg, #070914, #0b0f1f 56%, #070914);
+	color: var(--pisky-ink);
+	font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	-webkit-font-smoothing: antialiased;
+}
+
+body::before {
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	background-image:
+		radial-gradient(circle at 15% 23%, rgba(255, 255, 255, 0.28) 0 1px, transparent 1.5px),
+		radial-gradient(circle at 82% 13%, rgba(255, 255, 255, 0.21) 0 1px, transparent 1.5px),
+		radial-gradient(circle at 72% 72%, rgba(255, 255, 255, 0.16) 0 1px, transparent 1.5px);
+	background-size: 178px 178px, 247px 247px, 311px 311px;
+	pointer-events: none;
+	content: "";
+}
+
+body.pisky-public[data-pisky-daypart="morning"] {
+	--pisky-cloud-opacity: 0.18;
+}
+
+body.pisky-public[data-pisky-daypart="morning"] .pisky-public-orb-one {
+	filter: hue-rotate(24deg) saturate(0.86);
+}
+
+body.pisky-public[data-pisky-daypart="day"] .pisky-public-orb-one {
+	filter: hue-rotate(330deg) saturate(0.72) brightness(1.16);
+}
+
+body.pisky-public[data-pisky-daypart="evening"] .pisky-public-orb-two {
+	filter: hue-rotate(310deg) saturate(1.18);
+}
+
+body.pisky-public[data-pisky-daypart="night"] .pisky-public-orb-one {
+	filter: saturate(1.12);
+}
+
+body.pisky-theme-light {
+	--pisky-bg: #edf2fb;
+	--pisky-bg-raised: #f8faff;
+	--pisky-ink: #172039;
+	--pisky-muted: #59647b;
+	--pisky-subtle: #747e92;
+	--pisky-glass: rgba(255, 255, 255, 0.66);
+	--pisky-glass-strong: rgba(255, 255, 255, 0.86);
+	--pisky-border: rgba(37, 50, 82, 0.14);
+	--pisky-highlight: rgba(255, 255, 255, 0.82);
+	--pisky-shadow: 0 24px 70px rgba(62, 74, 111, 0.16);
+	background:
+		radial-gradient(circle at 58% -15%, rgba(135, 104, 237, 0.19), transparent 38rem),
+		radial-gradient(circle at 105% 80%, rgba(65, 174, 214, 0.15), transparent 34rem),
+		linear-gradient(145deg, #edf2fb, #f8faff 56%, #e8eef9);
+}
+
+body.pisky-theme-light::before {
+	opacity: 0.16;
+}
+
+body.pisky-theme-light a {
+	color: #5c46b7;
+}
+
+body.pisky-theme-light a:hover,
+body.pisky-theme-light a:focus {
+	color: #251873;
+}
+
+a {
+	color: #c8c1ef;
+}
+
+a:hover,
+a:focus {
+	color: #fff;
+	text-decoration: none;
+}
+
+code {
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 7px;
+	background: rgba(5, 7, 16, 0.34);
+	color: #c8bcff;
+	font-size: 0.88em;
+}
+
+.pisky-glass {
+	border: 1px solid var(--pisky-border);
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 42%),
+		var(--pisky-glass);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.07),
+		var(--pisky-shadow);
+	backdrop-filter: blur(28px) saturate(140%);
+	-webkit-backdrop-filter: blur(28px) saturate(140%);
+}
+
+.pisky-eyebrow {
+	display: block;
+	color: #a4abc2;
+	font-size: 13.5px;
+	font-weight: 750;
+	letter-spacing: 0.14em;
+	line-height: 1.3;
+	text-transform: uppercase;
+}
+
+.pisky-live-pill,
+.pisky-provider-pill,
+.pisky-quality-label {
+	display: inline-flex;
+	max-width: 100%;
+	min-width: 0;
+	align-items: center;
+	gap: 7px;
+	padding: 6px 9px;
+	border: 1px solid rgba(94, 230, 170, 0.17);
+	border-radius: 999px;
+	background: rgba(94, 230, 170, 0.07);
+	color: #b7f5d6;
+	font-size: 13.5px;
+	font-weight: 650;
+	/* Status text can be a full sentence, so it must be allowed to wrap on a
+	   narrow screen rather than pushing the page sideways. */
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+@media (min-width: 560px) {
+	.pisky-live-pill,
+	.pisky-provider-pill,
+	.pisky-quality-label {
+		white-space: nowrap;
+	}
+}
+
+.pisky-live-pill::before {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--pisky-green);
+	box-shadow: 0 0 0 4px rgba(94, 230, 170, 0.08), 0 0 15px #5ee6aa;
+	content: "";
+	animation: pisky-pulse 2.2s ease-in-out infinite;
+}
+
+.pisky-live-pill.is-error {
+	border-color: rgba(255, 135, 152, 0.17);
+	background: rgba(255, 135, 152, 0.08);
+	color: #ffc1c9;
+}
+
+.pisky-live-pill.is-error::before {
+	background: var(--pisky-danger);
+	box-shadow: 0 0 12px rgba(255, 135, 152, 0.52);
+}
+
+@keyframes pisky-pulse {
+	50% { opacity: 0.42; }
+}
+
+.pisky-brand-mark {
+	position: relative;
+	display: inline-block;
+	width: 36px;
+	height: 36px;
+	flex: 0 0 auto;
+	border: 1px solid rgba(255, 255, 255, 0.17);
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 65% 31%, #dcecff 0 2px, transparent 3px),
+		radial-gradient(circle at 44% 43%, #a18cff 0, #4a3e88 38%, #12182c 72%);
+	box-shadow: inset -7px -8px 14px rgba(4, 6, 18, 0.72), 0 0 22px rgba(141, 114, 247, 0.24);
+}
+
+.pisky-brand-mark > span {
+	position: absolute;
+	inset: -4px;
+	border: 1px solid rgba(167, 139, 250, 0.36);
+	border-width: 1px 0 0;
+	border-radius: 50%;
+	transform: rotate(-28deg);
+}
+
+/* Existing WebUI shell */
+
+#wrapper {
+	position: relative;
+	z-index: 1;
+	min-height: 100vh;
+	background: transparent;
+}
+
+.navbar.navbar-default.navbar-static-top {
+	min-height: 74px;
+	margin: 12px 12px 0 !important;
+	border: 1px solid var(--pisky-border);
+	border-radius: 19px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 40%),
+		rgba(16, 21, 39, 0.72);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 55px rgba(0, 0, 0, 0.25);
+	backdrop-filter: blur(28px) saturate(140%);
+	-webkit-backdrop-filter: blur(28px) saturate(140%);
+}
+
+.navbar-header {
+	position: relative;
+	width: 100%;
+	height: 72px;
+}
+
+.pisky-navbar-brand {
+	display: flex;
+	width: 100%;
+	height: 72px !important;
+	align-items: center;
+	padding: 0 18px !important;
+}
+
+.pisky-navbar-brand > a.navbar-brand {
+	display: flex;
+	height: auto;
+	align-items: center;
+	gap: 11px;
+	padding: 0;
+	color: var(--pisky-ink);
+	line-height: 1;
+}
+
+.pisky-navbar-brand > a.navbar-brand:hover,
+.pisky-navbar-brand > a.navbar-brand:focus {
+	color: #fff;
+}
+
+.pisky-brand-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.pisky-brand-copy strong {
+	font-size: 21.5px;
+	font-weight: 720;
+	letter-spacing: -0.05em;
+}
+
+.pisky-brand-copy small {
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+}
+
+.version-title {
+	display: block;
+	flex: 1;
+	margin-left: 28px;
+	color: var(--pisky-subtle) !important;
+	font-size: 12.5px;
+	line-height: 1.55;
+}
+
+.version-title .alert-success,
+.version-title .alert-warning,
+.version-title .alert-danger {
+	display: inline-block;
+	margin-bottom: 2px;
+	padding: 3px 7px;
+	border: 1px solid rgba(94, 230, 170, 0.16);
+	border-radius: 999px;
+	background: rgba(94, 230, 170, 0.07);
+	color: var(--pisky-green);
+}
+
+/*
+ * The whole menu is meant to be visible at once, so this must not scroll
+ * internally. Twenty-one rows at the larger type will not fit a laptop
+ * viewport at comfortable spacing, so the rows themselves are compact and the
+ * sidebar sizes to its content rather than being stretched to the viewport.
+ */
+.navbar-default.sidebar {
+	position: fixed;
+	top: 86px;
+	left: 12px;
+	width: 232px;
+	max-height: calc(100vh - 98px);
+	margin: 12px 0 0;
+	padding: 10px 9px;
+	overflow: visible;
+	border: 1px solid var(--pisky-border);
+	border-radius: 18px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%),
+		rgba(17, 22, 40, 0.7);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 65px rgba(0, 0, 0, 0.27);
+	backdrop-filter: blur(26px) saturate(140%);
+	-webkit-backdrop-filter: blur(26px) saturate(140%);
+}
+
+.sidebar .sidebar-nav {
+	background: transparent;
+}
+
+.sidebar ul li,
+.dark .sidebar ul li {
+	border: 0;
+}
+
+/* Rows are deliberately tight: the label stays at a readable size, and the
+   space around it absorbs the cost of showing all of them at once. */
+.sidebar ul li a,
+.sidebar ul li span,
+.dark .sidebar ul li a,
+.dark .sidebar ul li span {
+	display: flex;
+	min-height: 34px;
+	align-items: center;
+	margin: 1px 0;
+	padding: 5px 10px;
+	border: 1px solid transparent;
+	border-radius: 9px;
+	background: transparent;
+	color: #939bb0;
+	font-size: 14.5px;
+	line-height: 1.15;
+	transition: 160ms ease;
+}
+
+.sidebar ul li a .fa,
+.sidebar ul li span .fa {
+	width: 22px;
+	margin-right: 6px;
+	color: #8875e6;
+	font-size: 16.5px;
+}
+
+.sidebar ul li a:hover,
+.sidebar ul li a:focus,
+.sidebar ul li a.active,
+.sidebar ul li span:hover,
+.dark .sidebar ul li a:hover,
+.dark .sidebar ul li a.active {
+	border-color: rgba(255, 255, 255, 0.08);
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.03));
+	color: #fff;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+.sidebar ul li.pisky-nav-label {
+	min-height: auto;
+	margin: 9px 10px 3px;
+	color: #5f6880;
+	font-size: 11.5px;
+	font-weight: 750;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.sidebar ul li.pisky-nav-label:first-child {
+	margin-top: 3px;
+}
+
+/*
+ * On a short window even the compact rows cannot all fit, so tighten further
+ * before allowing any scrolling at all. Scrolling remains the last resort
+ * rather than the default, so the menu stays fully visible wherever it can.
+ */
+@media (max-height: 860px) {
+	.navbar-default.sidebar {
+		top: 78px;
+		max-height: calc(100vh - 88px);
+		overflow-y: auto;
+		scrollbar-width: thin;
+	}
+
+	/* The .dark variants must be listed too: they carry higher specificity
+	   than the plain selectors and would otherwise win regardless of order. */
+	.sidebar ul li a,
+	.sidebar ul li span,
+	.dark .sidebar ul li a,
+	.dark .sidebar ul li span {
+		min-height: 27px;
+		margin: 0;
+		padding: 3px 10px;
+		border-radius: 8px;
+		font-size: 13px;
+	}
+
+	.sidebar ul li a .fa,
+	.sidebar ul li span .fa,
+	.dark .sidebar ul li a .fa,
+	.dark .sidebar ul li span .fa {
+		width: 19px;
+		margin-right: 5px;
+		font-size: 14px;
+	}
+
+	.sidebar ul li.pisky-nav-label {
+		margin: 6px 10px 1px;
+		font-size: 10px;
+	}
+
+	.navbar-default.sidebar .sidebar-nav {
+		padding-top: 0;
+		padding-bottom: 0;
+	}
+}
+
+/* A 720-tall window is the tightest case that still needs the whole menu. */
+@media (max-height: 780px) {
+	.navbar-default.sidebar {
+		top: 70px;
+		max-height: calc(100vh - 84px);
+		padding: 6px 8px;
+	}
+
+	.sidebar ul li a,
+	.sidebar ul li span,
+	.dark .sidebar ul li a,
+	.dark .sidebar ul li span {
+		min-height: 25px;
+		padding: 2px 9px;
+		font-size: 12.5px;
+	}
+
+	.sidebar ul li a .fa,
+	.sidebar ul li span .fa,
+	.dark .sidebar ul li a .fa,
+	.dark .sidebar ul li span .fa {
+		width: 17px;
+		margin-right: 4px;
+		font-size: 13px;
+	}
+
+	.sidebar ul li.pisky-nav-label {
+		margin: 5px 9px 1px;
+		font-size: 9.5px;
+	}
+}
+
+#page-wrapper,
+.dark #page-wrapper {
+	position: relative;
+	min-height: calc(100vh - 98px) !important;
+	margin: 12px 12px 0 250px;
+	padding: 28px clamp(18px, 2.6vw, 38px) 0;
+	border: 0;
+	background: transparent;
+}
+
+.right-panel > .col-lg-12 {
+	padding: 0;
+}
+
+.pisky-admin-footer {
+	display: flex;
+	justify-content: space-between;
+	gap: 18px;
+	margin-top: 32px;
+	padding: 18px 2px 22px;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	color: var(--pisky-subtle);
+	font-size: 12.5px;
+}
+
+.pisky-admin-footer a {
+	color: #a9a1d7;
+}
+
+/* Global modernization for existing settings/pages */
+
+.panel,
+.dark .panel {
+	overflow: hidden;
+	border: 1px solid var(--pisky-border);
+	border-radius: 17px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.065), transparent 44%),
+		var(--pisky-glass);
+	color: var(--pisky-ink);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 60px rgba(0, 0, 0, 0.24);
+}
+
+.panel-primary,
+.panel-default,
+.dark .panel-primary,
+.dark .panel-default {
+	border-color: var(--pisky-border);
+}
+
+.panel-heading,
+.panel-primary > .panel-heading,
+.panel-default > .panel-heading,
+.dark .panel-heading {
+	padding: 14px 17px;
+	border-color: rgba(255, 255, 255, 0.07);
+	background: rgba(255, 255, 255, 0.045);
+	color: #f5f7ff;
+	font-size: 15.5px;
+	font-weight: 650;
+}
+
+.panel-body {
+	color: #c5cada;
+}
+
+.panel-footer,
+.dark .panel-footer {
+	border-color: rgba(255, 255, 255, 0.07);
+	background: rgba(255, 255, 255, 0.035);
+	color: var(--pisky-muted);
+}
+
+.table,
+.dark .table {
+	color: #c7ccda;
+}
+
+.table > thead > tr > th,
+.table > tbody > tr > td,
+.table > tbody > tr > th,
+.dark .table > tbody > tr > td {
+	border-color: rgba(255, 255, 255, 0.07);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd),
+.dark .table-striped > tbody > tr:nth-of-type(odd) {
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.form-control,
+select,
+input[type="text"],
+input[type="number"],
+input[type="password"],
+textarea,
+.dark .form-control {
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+	outline: none;
+	background: rgba(4, 6, 15, 0.34);
+	color: #e5e8f4;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: rgba(154, 130, 244, 0.55);
+	box-shadow: 0 0 0 3px rgba(154, 130, 244, 0.1);
+}
+
+.btn {
+	min-height: 38px;
+	padding: 8px 14px;
+	border-radius: 11px;
+	font-size: 14.5px;
+	font-weight: 650;
+	transition: 160ms ease;
+}
+
+.btn:hover {
+	transform: translateY(-1px);
+}
+
+.btn-primary,
+.btn-success {
+	border-color: rgba(255, 255, 255, 0.06);
+	background: linear-gradient(135deg, #8d72f7, #6652d9);
+	color: #fff;
+	box-shadow: 0 8px 25px rgba(113, 83, 224, 0.24);
+}
+
+.btn-default,
+.dark .btn-default {
+	border-color: rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.06);
+	color: #d7dbea;
+}
+
+.btn-danger {
+	border-color: rgba(255, 135, 152, 0.16);
+	background: rgba(255, 93, 111, 0.13);
+	color: #ffb3bd;
+}
+
+.alert,
+.system-message {
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 13px;
+	background: rgba(255, 255, 255, 0.045);
+	color: #cbd0df;
+}
+
+.alert-info,
+.alert-success {
+	border-color: rgba(94, 230, 170, 0.14);
+	background: rgba(94, 230, 170, 0.055);
+	color: #b9efd6;
+}
+
+.alert-warning {
+	border-color: rgba(255, 189, 122, 0.15);
+	background: rgba(255, 189, 122, 0.06);
+	color: #f3d4ad;
+}
+
+.alert-danger {
+	border-color: rgba(255, 135, 152, 0.15);
+	background: rgba(255, 135, 152, 0.06);
+	color: #f7bdc5;
+}
+
+.page-header {
+	margin-top: 0;
+	border-color: rgba(255, 255, 255, 0.08);
+	color: #f5f7ff;
+	font-weight: 570;
+	letter-spacing: -0.04em;
+}
+
+.modal-content,
+.dark .modal-content {
+	border: 1px solid var(--pisky-border);
+	border-radius: 17px;
+	background: #151a2e;
+	color: var(--pisky-ink);
+	box-shadow: var(--pisky-shadow);
+}
+
+.modal-header,
+.modal-footer {
+	border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Admin dashboard components */
+
+.pisky-page-heading {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 24px;
+	margin: 3px 0 25px;
+}
+
+.pisky-page-heading h1 {
+	margin: 7px 0 5px;
+	color: #f7f8ff;
+	font-size: clamp(32px, 4vw, 48px);
+	font-weight: 560;
+	letter-spacing: -0.06em;
+	line-height: 1;
+}
+
+.pisky-page-heading p {
+	margin: 0;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+}
+
+.pisky-heading-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.pisky-metric-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.pisky-metric {
+	min-width: 0;
+	padding: 16px;
+	border-radius: 16px;
+}
+
+.pisky-metric > span,
+.pisky-metric > small {
+	display: block;
+	color: var(--pisky-subtle);
+	font-size: 12px;
+}
+
+.pisky-metric > strong {
+	display: block;
+	min-height: 29px;
+	margin: 13px 0 3px;
+	color: #fff;
+	font-size: 27px;
+	font-weight: 590;
+	letter-spacing: -0.05em;
+}
+
+.pisky-metric small b {
+	color: #adb4c7;
+	font-weight: 500;
+}
+
+.pisky-panel {
+	padding: 16px;
+	border-radius: 18px;
+}
+
+.pisky-panel-heading,
+.pisky-card-heading,
+.pisky-condition-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 18px;
+}
+
+.pisky-panel-heading {
+	margin-bottom: 14px;
+}
+
+.pisky-panel-heading h2,
+.pisky-card-heading h2 {
+	margin: 5px 0 0;
+	color: #f4f6ff;
+	font-size: 19.5px;
+	font-weight: 620;
+	letter-spacing: -0.03em;
+}
+
+.pisky-provider-pill {
+	border-color: rgba(154, 130, 244, 0.16);
+	background: rgba(154, 130, 244, 0.075);
+	color: #d0c6ff;
+}
+
+.pisky-admin-live-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.65fr);
+	gap: 12px;
+}
+
+.pisky-admin-live-container {
+	position: relative;
+	display: grid;
+	min-height: 500px;
+	place-items: center;
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 13px;
+	background:
+		radial-gradient(circle at 50% 46%, rgba(55, 63, 109, 0.42), transparent 46%),
+		#080b17;
+}
+
+.pisky-admin-live-container::before,
+.pisky-admin-live-container::after {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 0;
+	width: min(82%, 610px);
+	border: 1px solid rgba(154, 130, 244, 0.2);
+	border-radius: 50%;
+	aspect-ratio: 1;
+	content: "";
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+}
+
+.pisky-admin-live-container::before {
+	box-shadow:
+		0 0 0 10px rgba(154, 130, 244, 0.025),
+		0 0 70px rgba(101, 76, 214, 0.18);
+}
+
+.pisky-admin-live-container::after {
+	width: min(72%, 535px);
+	border-color: rgba(97, 217, 255, 0.1);
+}
+
+.pisky-admin-live-container img.current {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: min(76%, 565px);
+	height: auto;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	border-radius: 50%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	box-shadow:
+		inset 0 0 38px rgba(0, 0, 0, 0.34),
+		0 24px 80px rgba(0, 0, 0, 0.42),
+		0 0 52px rgba(119, 91, 224, 0.15);
+	clip-path: circle(49.7% at 50% 50%);
+}
+
+.pisky-image-vignette {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 2;
+	width: min(76%, 565px);
+	border-radius: 50%;
+	aspect-ratio: 1;
+	background:
+		linear-gradient(to top, rgba(4, 6, 14, 0.52), transparent 28%),
+		radial-gradient(circle, transparent 58%, rgba(3, 5, 12, 0.18));
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+}
+
+.pisky-image-badge {
+	position: absolute;
+	z-index: 3;
+	bottom: 13px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 8px 10px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+	background: rgba(5, 8, 19, 0.56);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	backdrop-filter: blur(10px);
+}
+
+.pisky-image-badge-left { left: 13px; }
+.pisky-image-badge-right { right: 13px; }
+
+.pisky-image-badge span {
+	color: var(--pisky-muted);
+	font-size: 11.5px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.pisky-image-badge strong {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 13.5px;
+	font-weight: 550;
+}
+
+.pisky-admin-condition-panel {
+	display: flex;
+	flex-direction: column;
+}
+
+.pisky-admin-temperature {
+	margin: 28px 0;
+	font-size: clamp(54px, 7vw, 86px);
+	font-weight: 520;
+	letter-spacing: -0.08em;
+	line-height: 0.9;
+}
+
+.pisky-admin-condition-panel dl {
+	margin: 0 0 20px;
+}
+
+.pisky-admin-condition-panel dl div {
+	display: flex;
+	justify-content: space-between;
+	gap: 14px;
+	padding: 12px 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pisky-admin-condition-panel dt {
+	color: var(--pisky-subtle);
+	font-size: 12.5px;
+	font-weight: 500;
+}
+
+.pisky-admin-condition-panel dd {
+	margin: 0;
+	color: #d7dbea;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 13.5px;
+}
+
+.pisky-admin-condition-panel footer,
+.pisky-data-attribution {
+	margin-top: auto;
+	padding-top: 14px;
+	color: var(--pisky-subtle);
+	font-size: 12px;
+	text-align: center;
+}
+
+.pisky-status-message {
+	margin-bottom: 12px;
+}
+
+/* Weather admin workspace */
+
+.pisky-weather-admin-grid {
+	margin-right: -6px;
+	margin-left: -6px;
+}
+
+.pisky-weather-admin-grid > div {
+	padding: 0 6px;
+}
+
+.pisky-condition-map {
+	position: relative;
+	display: grid;
+	min-height: 350px;
+	grid-template-columns: auto 1fr minmax(230px, 0.8fr);
+	align-items: center;
+	gap: 35px;
+	overflow: hidden;
+	padding: 28px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 14px;
+	background:
+		radial-gradient(circle at 18% 50%, rgba(94, 108, 210, 0.22), transparent 28%),
+		radial-gradient(circle at 74% 12%, rgba(42, 148, 174, var(--pisky-cloud-opacity)), transparent 38%),
+		rgba(5, 8, 18, 0.25);
+}
+
+.pisky-weather-orb {
+	position: relative;
+	width: 118px;
+	height: 118px;
+	border: 1px solid rgba(165, 145, 255, 0.26);
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 62% 33%, rgba(198, 225, 255, 0.94) 0 4px, transparent 5px),
+		radial-gradient(circle at 45% 45%, rgba(104, 94, 190, 0.72), rgba(17, 24, 55, 0.9) 70%);
+	box-shadow: inset -24px -20px 45px rgba(2, 5, 15, 0.66), 0 0 60px rgba(114, 93, 221, 0.2);
+}
+
+.pisky-weather-orb span,
+.pisky-weather-orb i {
+	position: absolute;
+	inset: -10px;
+	border: 1px solid;
+	border-color: rgba(97, 217, 255, 0.34) transparent transparent;
+	border-radius: 50%;
+	transform: rotate(32deg);
+}
+
+.pisky-weather-orb i {
+	inset: 11px;
+	border-color: transparent rgba(154, 130, 244, 0.34) transparent transparent;
+}
+
+.pisky-condition-primary strong {
+	display: block;
+	font-size: clamp(48px, 6vw, 78px);
+	font-weight: 520;
+	letter-spacing: -0.08em;
+	line-height: 0.92;
+}
+
+.pisky-condition-primary span {
+	display: block;
+	margin-top: 13px;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+}
+
+.pisky-condition-primary b {
+	color: #c4c9d7;
+	font-weight: 550;
+}
+
+.pisky-condition-map dl {
+	margin: 0;
+}
+
+.pisky-condition-map dl div {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 12px 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pisky-condition-map dt {
+	color: var(--pisky-subtle);
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.pisky-condition-map dd {
+	margin: 0;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
+}
+
+.pisky-provider-panel {
+	min-height: 100%;
+}
+
+.pisky-provider-panel > p {
+	min-height: 52px;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+	line-height: 1.6;
+}
+
+.pisky-provider-choice {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 18px 0;
+}
+
+.pisky-provider-choice > div {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	padding: 13px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.025);
+	opacity: 0.58;
+}
+
+.pisky-provider-choice > div.active {
+	border-color: rgba(154, 130, 244, 0.23);
+	background: rgba(154, 130, 244, 0.075);
+	opacity: 1;
+}
+
+.pisky-provider-choice .fa {
+	width: 28px;
+	color: var(--pisky-cyan);
+	font-size: 19.5px;
+	text-align: center;
+}
+
+.pisky-provider-choice > div > span {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.pisky-provider-choice strong {
+	font-size: 12.5px;
+}
+
+.pisky-provider-choice small {
+	color: var(--pisky-subtle);
+	font-size: 11.5px;
+}
+
+.pisky-config-note {
+	margin-bottom: 14px;
+	padding: 11px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 11px;
+	background: rgba(5, 7, 16, 0.25);
+}
+
+.pisky-config-note span {
+	display: block;
+	margin-bottom: 6px;
+	color: var(--pisky-subtle);
+	font-size: 11.5px;
+	text-transform: uppercase;
+}
+
+.pisky-config-note code {
+	display: block;
+	overflow: hidden;
+	border: 0;
+	background: none;
+	font-size: 11.5px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pisky-integration-guide {
+	margin-top: 12px;
+}
+
+.pisky-guide-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 10px;
+}
+
+.pisky-guide-grid article {
+	position: relative;
+	min-height: 170px;
+	padding: 18px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 13px;
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.pisky-guide-number {
+	color: #7c68dc;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
+}
+
+.pisky-guide-grid h3 {
+	margin: 18px 0 8px;
+	font-size: 16.5px;
+	font-weight: 620;
+}
+
+.pisky-guide-grid p {
+	margin: 0;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+	line-height: 1.55;
+}
+
+/* Public visitor interface */
+
+body.pisky-public {
+	overflow-x: hidden;
+	background:
+		radial-gradient(circle at 24% -10%, rgba(98, 64, 178, 0.24), transparent 34rem),
+		radial-gradient(circle at 105% 30%, rgba(33, 104, 145, 0.2), transparent 33rem),
+		linear-gradient(145deg, #080a17 0%, #0b0f21 46%, #080a15 100%);
+}
+
+.pisky-public-orb {
+	position: fixed;
+	border-radius: 50%;
+	filter: blur(85px);
+	pointer-events: none;
+}
+
+.pisky-public-orb-one {
+	top: 22%;
+	left: -16rem;
+	width: 34rem;
+	height: 34rem;
+	background: rgba(106, 69, 201, 0.16);
+}
+
+.pisky-public-orb-two {
+	right: -18rem;
+	bottom: 15%;
+	width: 36rem;
+	height: 36rem;
+	background: rgba(29, 151, 182, 0.12);
+}
+
+.pisky-public-shell {
+	position: relative;
+	z-index: 1;
+	width: min(100%, 1540px);
+	min-height: 100vh;
+	margin-inline: auto;
+	padding: 20px clamp(16px, 3vw, 50px) 32px;
+}
+
+.pisky-public-nav {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	min-height: 64px;
+	padding: 10px 12px 10px 16px;
+	border-radius: 20px;
+}
+
+.pisky-public-brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 11px;
+}
+
+.pisky-public-brand > span:last-child {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.pisky-public-brand strong {
+	color: #fff;
+	font-size: 20.5px;
+	font-weight: 730;
+	letter-spacing: -0.05em;
+}
+
+.pisky-public-brand small {
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+}
+
+.pisky-public-links {
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 13px;
+	background: rgba(4, 6, 15, 0.2);
+}
+
+.pisky-public-links a {
+	padding: 8px 13px;
+	border-radius: 9px;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+	font-weight: 600;
+}
+
+.pisky-public-links a:hover,
+.pisky-public-links a.active {
+	background: rgba(255, 255, 255, 0.09);
+	color: #fff;
+}
+
+.pisky-public-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.pisky-subtle-button {
+	display: inline-flex;
+	min-height: 38px;
+	align-items: center;
+	gap: 8px;
+	padding: 0 13px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.055);
+	color: #e7e9f3;
+	font-size: 13.5px;
+	font-weight: 650;
+}
+
+.pisky-subtle-button:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.pisky-public-intro {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 40px;
+	padding: clamp(54px, 7vw, 90px) 8px 34px;
+}
+
+.pisky-public-intro h1 {
+	margin: 9px 0 0;
+	color: #fff;
+	font-size: clamp(48px, 6.4vw, 94px);
+	font-weight: 520;
+	letter-spacing: -0.075em;
+	line-height: 0.98;
+}
+
+.pisky-public-intro > p {
+	max-width: 450px;
+	margin: 0 0 7px;
+	color: #aab0c1;
+	font-size: 17.5px;
+	line-height: 1.65;
+}
+
+.pisky-public-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 2.15fr) minmax(300px, 0.88fr);
+	gap: 18px;
+}
+
+.pisky-public-live-card,
+.pisky-public-condition-card,
+.pisky-public-context > article {
+	border-radius: 24px;
+}
+
+.pisky-public-live-card {
+	min-width: 0;
+	padding: 13px;
+}
+
+.pisky-card-heading {
+	padding: 8px 8px 16px;
+}
+
+.pisky-capture-state {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	text-align: right;
+}
+
+.pisky-capture-state span {
+	color: var(--pisky-subtle);
+	font-size: 12px;
+	text-transform: uppercase;
+}
+
+.pisky-capture-state strong {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 13.5px;
+}
+
+.pisky-live-container {
+	position: relative;
+	display: grid;
+	min-height: clamp(520px, 59vw, 820px);
+	place-items: center;
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 18px;
+	background:
+		radial-gradient(circle at 50% 46%, rgba(37, 42, 75, 0.68), transparent 42%),
+		linear-gradient(135deg, #090d1a, #0e1429);
+}
+
+.pisky-live-container::before {
+	position: absolute;
+	inset: 0;
+	background:
+		linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+		linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+	background-size: 48px 48px;
+	mask-image: radial-gradient(circle, #000, transparent 72%);
+	content: "";
+}
+
+.pisky-current-image {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: min(88%, 760px);
+	height: auto;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	border-radius: 50%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	box-shadow:
+		0 28px 90px rgba(0, 0, 0, 0.48),
+		0 0 70px rgba(119, 91, 224, 0.16);
+	clip-path: circle(49.7% at 50% 50%);
+}
+
+.pisky-capture-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20px;
+	padding: 15px 8px 3px;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+}
+
+.pisky-capture-footer > div {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.pisky-capture-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--pisky-green);
+	box-shadow: 0 0 12px var(--pisky-green);
+}
+
+.pisky-capture-footer a {
+	color: #d0d4e1;
+	font-weight: 650;
+}
+
+.pisky-public-conditions {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.pisky-public-condition-card {
+	flex: 1;
+	padding: 21px;
+}
+
+.pisky-temperature-row {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	gap: 18px;
+	padding: 34px 0 27px;
+}
+
+.pisky-temperature-row > strong {
+	font-size: clamp(48px, 5.5vw, 76px);
+	font-weight: 520;
+	letter-spacing: -0.08em;
+	line-height: 0.9;
+}
+
+.pisky-temperature-row > div {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.pisky-temperature-row span {
+	font-size: 13.5px;
+	font-weight: 620;
+}
+
+.pisky-temperature-row small {
+	color: var(--pisky-subtle);
+	font-size: 12px;
+}
+
+.pisky-temperature-row b {
+	color: #bdc2d2;
+	font-weight: 550;
+}
+
+.pisky-condition-metrics {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px 0;
+	margin: 0;
+	padding-top: 17px;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/*
+ * Four readings in a three-column grid strands the fourth alone on a second
+ * row. The sun and moon card has exactly four, so it pairs them instead.
+ */
+.pisky-condition-metrics:has(> div:nth-child(4)) {
+	grid-template-columns: repeat(2, 1fr);
+}
+
+.pisky-condition-metrics:has(> div:nth-child(4)) > div:nth-child(odd) {
+	padding-left: 0;
+	border-left: 0;
+}
+
+.pisky-condition-metrics:has(> div:nth-child(4)) > div:nth-child(even) {
+	padding-left: 12px;
+	border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pisky-condition-metrics div {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	padding-left: 12px;
+	border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pisky-condition-metrics div:first-child {
+	padding-left: 0;
+	border-left: 0;
+}
+
+.pisky-condition-metrics dt {
+	color: var(--pisky-subtle);
+	font-size: 11.5px;
+	font-weight: 500;
+}
+
+.pisky-condition-metrics dd {
+	margin: 0;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 13.5px;
+}
+
+.pisky-wind-direction {
+	color: var(--pisky-cyan);
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 13.5px;
+}
+
+.pisky-wind-orbit {
+	position: relative;
+	width: 112px;
+	height: 112px;
+	margin: 17px auto 19px;
+	border: 1px solid rgba(97, 217, 255, 0.17);
+	border-radius: 50%;
+	background:
+		radial-gradient(circle, rgba(74, 119, 169, 0.2), transparent 55%),
+		repeating-radial-gradient(circle, transparent 0 17px, rgba(255, 255, 255, 0.04) 18px 19px);
+}
+
+.pisky-wind-orbit::before,
+.pisky-wind-orbit::after {
+	position: absolute;
+	background: rgba(255, 255, 255, 0.08);
+	content: "";
+}
+
+.pisky-wind-orbit::before {
+	top: 50%;
+	right: 8px;
+	left: 8px;
+	height: 1px;
+}
+
+.pisky-wind-orbit::after {
+	top: 8px;
+	bottom: 8px;
+	left: 50%;
+	width: 1px;
+}
+
+.pisky-wind-orbit i {
+	position: absolute;
+	top: 18px;
+	left: 54px;
+	z-index: 1;
+	width: 2px;
+	height: 38px;
+	border-radius: 3px;
+	background: linear-gradient(to bottom, var(--pisky-cyan), rgba(97, 217, 255, 0.16));
+	box-shadow: 0 0 12px rgba(97, 217, 255, 0.38);
+	transform: rotate(38deg);
+	transform-origin: bottom;
+}
+
+.pisky-wind-orbit span {
+	position: absolute;
+	top: 52px;
+	left: 52px;
+	z-index: 2;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #b9f1ff;
+	box-shadow: 0 0 13px var(--pisky-cyan);
+}
+
+.pisky-quality-label {
+	border-color: rgba(94, 230, 170, 0.15);
+}
+
+.pisky-clarity-row {
+	margin-top: 22px;
+}
+
+.pisky-clarity-row > div:first-child {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 9px;
+}
+
+.pisky-clarity-row span {
+	color: var(--pisky-muted);
+	font-size: 12px;
+}
+
+.pisky-clarity-row strong {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
+}
+
+.pisky-clarity-track {
+	height: 4px;
+	overflow: hidden;
+	border-radius: 99px;
+	background: rgba(255, 255, 255, 0.07);
+}
+
+.pisky-clarity-track i {
+	display: block;
+	width: calc(100% * var(--pisky-cloud-opacity) * 2.15);
+	min-width: 8%;
+	height: 100%;
+	border-radius: inherit;
+	background: linear-gradient(90deg, #8065eb, #63d9f3);
+	box-shadow: 0 0 14px rgba(99, 217, 243, 0.4);
+}
+
+.pisky-clarity-track.visibility i {
+	width: 78%;
+}
+
+.pisky-clarity-card footer {
+	margin-top: 23px;
+	padding-top: 14px;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	color: var(--pisky-subtle);
+	font-size: 11.5px;
+}
+
+.pisky-public-context {
+	display: grid;
+	grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+	gap: 18px;
+	margin-top: 18px;
+}
+
+.pisky-public-context > article {
+	padding: clamp(25px, 4vw, 48px);
+}
+
+.pisky-public-context h2 {
+	max-width: 580px;
+	margin: 8px 0 13px;
+	font-size: clamp(28px, 4vw, 48px);
+	font-weight: 540;
+	letter-spacing: -0.06em;
+}
+
+.pisky-public-context p {
+	max-width: 640px;
+	margin: 0;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+	line-height: 1.7;
+}
+
+.pisky-location-card {
+	display: flex;
+	align-items: center;
+	gap: 23px;
+}
+
+.pisky-location-orbit {
+	position: relative;
+	display: grid;
+	width: 78px;
+	height: 78px;
+	flex: 0 0 auto;
+	place-items: center;
+	border: 1px solid rgba(154, 130, 244, 0.24);
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(111, 89, 209, 0.16), transparent 70%);
+}
+
+.pisky-location-orbit span {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #c5baff;
+	box-shadow: 0 0 16px var(--pisky-purple);
+}
+
+.pisky-location-orbit i {
+	position: absolute;
+	inset: -6px;
+	border: 1px solid;
+	border-color: var(--pisky-purple) transparent transparent;
+	border-radius: 50%;
+	transform: rotate(28deg);
+}
+
+.pisky-location-card h3 {
+	margin: 7px 0 4px;
+	font-size: 20.5px;
+	font-weight: 620;
+}
+
+.pisky-location-card p {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
+}
+
+/* Local ADS-B flight workspace */
+
+.pisky-public-flight-card {
+	margin-top: 18px;
+	padding: 14px;
+	border-radius: 24px;
+}
+
+.pisky-public-flight-card > .pisky-card-heading {
+	padding: 9px 9px 17px;
+}
+
+.pisky-flight-summary {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.pisky-flight-summary > strong {
+	color: #bec4d5;
+	font-size: 12.5px;
+	font-weight: 520;
+}
+
+.pisky-flight-summary > strong b {
+	color: #fff;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 16.5px;
+	font-weight: 600;
+}
+
+.pisky-public-flight-grid {
+	display: grid;
+	grid-template-columns: minmax(330px, 0.82fr) minmax(0, 1.18fr);
+	align-items: stretch;
+	gap: 14px;
+}
+
+.pisky-radar-scope {
+	position: relative;
+	width: min(100%, 520px);
+	aspect-ratio: 1;
+	margin: auto;
+	overflow: hidden;
+	border: 1px solid rgba(97, 217, 255, 0.18);
+	border-radius: 50%;
+	background:
+		linear-gradient(90deg, transparent 49.85%, rgba(97, 217, 255, 0.11) 50%, transparent 50.15%),
+		linear-gradient(transparent 49.85%, rgba(97, 217, 255, 0.11) 50%, transparent 50.15%),
+		repeating-radial-gradient(circle, transparent 0 12%, rgba(97, 217, 255, 0.085) 12.25% 12.55%),
+		radial-gradient(circle, rgba(37, 107, 130, 0.2), rgba(6, 14, 25, 0.62) 68%);
+	box-shadow:
+		inset 0 0 70px rgba(35, 150, 175, 0.08),
+		0 0 50px rgba(20, 94, 128, 0.08);
+}
+
+.pisky-radar-scope::before,
+.pisky-radar-scope::after {
+	position: absolute;
+	z-index: 1;
+	border: 1px solid rgba(97, 217, 255, 0.07);
+	border-radius: 50%;
+	content: "";
+	pointer-events: none;
+}
+
+.pisky-radar-scope::before { inset: 24%; }
+.pisky-radar-scope::after { inset: 8%; }
+
+.pisky-radar-sweep {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	border-radius: 50%;
+	background: conic-gradient(
+		from 0deg,
+		rgba(97, 217, 255, 0.18),
+		rgba(97, 217, 255, 0.03) 12deg,
+		transparent 38deg
+	);
+	animation: pisky-radar-scan 6s linear infinite;
+	pointer-events: none;
+}
+
+@keyframes pisky-radar-scan {
+	to { transform: rotate(360deg); }
+}
+
+.pisky-radar-station {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 5;
+	width: 10px;
+	height: 10px;
+	border: 2px solid rgba(236, 252, 255, 0.94);
+	border-radius: 50%;
+	background: #51d8f6;
+	box-shadow: 0 0 18px rgba(81, 216, 246, 0.9);
+	transform: translate(-50%, -50%);
+}
+
+.pisky-radar-label {
+	position: absolute;
+	z-index: 4;
+	color: rgba(182, 226, 237, 0.58);
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12px;
+}
+
+.pisky-radar-north { top: 9px; left: 50%; transform: translateX(-50%); }
+.pisky-radar-east { top: 50%; right: 10px; transform: translateY(-50%); }
+.pisky-radar-south { bottom: 9px; left: 50%; transform: translateX(-50%); }
+.pisky-radar-west { top: 50%; left: 10px; transform: translateY(-50%); }
+
+[data-pisky-radar] {
+	position: absolute;
+	inset: 0;
+	z-index: 3;
+	pointer-events: none;
+}
+
+.pisky-aircraft-blip {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: #c8f6ff;
+	transform: translate(-50%, -50%);
+}
+
+.pisky-aircraft-blip i {
+	display: block;
+	width: 8px;
+	height: 11px;
+	background: currentColor;
+	clip-path: polygon(50% 0, 85% 70%, 61% 61%, 61% 100%, 39% 100%, 39% 61%, 15% 70%);
+	filter: drop-shadow(0 0 5px rgba(97, 217, 255, 0.9));
+	transform: rotate(var(--pisky-aircraft-track));
+}
+
+.pisky-aircraft-blip b {
+	max-width: 58px;
+	overflow: hidden;
+	color: rgba(219, 239, 244, 0.78);
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 11px;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pisky-aircraft-blip.is-emergency {
+	color: var(--pisky-danger);
+}
+
+.pisky-flight-list-wrap {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	padding: clamp(14px, 2.6vw, 28px);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 18px;
+	background: rgba(5, 9, 18, 0.31);
+}
+
+.pisky-flight-list-heading,
+.pisky-flight-list-wrap footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 15px;
+}
+
+.pisky-flight-list-heading {
+	margin-bottom: 17px;
+	color: var(--pisky-muted);
+	font-size: 12px;
+	text-transform: uppercase;
+}
+
+.pisky-flight-list-heading b {
+	color: #dce0ed;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-weight: 550;
+}
+
+.pisky-flight-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.pisky-flight-table th {
+	padding: 8px 10px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	color: var(--pisky-subtle);
+	font-size: 11.5px;
+	font-weight: 600;
+	text-align: left;
+	text-transform: uppercase;
+}
+
+.pisky-flight-table td {
+	padding: 12px 10px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+	color: #c7cbd8;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12px;
+}
+
+.pisky-flight-table td:first-child {
+	font-family: inherit;
+}
+
+.pisky-flight-table td strong,
+.pisky-flight-table td small {
+	display: block;
+}
+
+.pisky-flight-table td strong {
+	color: #f2f4fb;
+	font-size: 12.5px;
+	font-weight: 650;
+}
+
+.pisky-flight-table td small {
+	margin-top: 2px;
+	color: var(--pisky-subtle);
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 11px;
+}
+
+.pisky-flight-table tr.is-emergency td {
+	background: rgba(255, 135, 152, 0.055);
+	color: #ffb0bb;
+}
+
+.pisky-flight-empty {
+	padding: 30px 10px !important;
+	color: var(--pisky-subtle) !important;
+	text-align: center;
+}
+
+.pisky-flight-list-wrap footer {
+	margin-top: auto;
+	padding: 16px 10px 0;
+	color: var(--pisky-subtle);
+	font-size: 11.5px;
+}
+
+.pisky-flight-list-wrap footer b {
+	color: #aab0c1;
+	font-weight: 520;
+}
+
+.pisky-flight-admin-grid {
+	display: grid;
+	grid-template-columns: minmax(360px, 0.86fr) minmax(0, 1.14fr);
+	gap: 12px;
+}
+
+.pisky-radar-scope-admin {
+	width: min(100%, 590px);
+}
+
+.pisky-flight-radar-panel {
+	display: flex;
+	flex-direction: column;
+}
+
+.pisky-coverage-map {
+	margin-top: 14px;
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 15px;
+	background: rgba(5, 8, 18, 0.7);
+}
+
+.pisky-coverage-map-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 13px 15px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pisky-coverage-map-heading strong,
+.pisky-coverage-map-heading span {
+	display: block;
+}
+
+.pisky-coverage-map-heading strong {
+	margin-top: 4px;
+	color: #eef1fb;
+	font-size: 15.5px;
+}
+
+.pisky-coverage-map-heading > span {
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+}
+
+.pisky-coverage-map iframe {
+	display: block;
+	width: 100%;
+	height: clamp(260px, 34vw, 440px);
+	border: 0;
+	filter: saturate(0.72) contrast(1.04) brightness(0.78);
+}
+
+.pisky-map-attribution {
+	display: block;
+	padding: 8px 12px;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+	text-align: right;
+}
+
+.pisky-map-attribution a {
+	color: #b5c8ff;
+}
+
+.pisky-coverage-map-empty {
+	display: grid;
+	min-height: 180px;
+	padding: 24px;
+	place-items: center;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+	text-align: center;
+}
+
+.pisky-flight-table-panel {
+	min-width: 0;
+}
+
+.pisky-flight-table-scroll {
+	overflow-x: auto;
+}
+
+.pisky-flight-table-admin {
+	min-width: 620px;
+}
+
+.pisky-flight-table-admin th,
+.pisky-flight-table-admin td {
+	padding-top: 13px;
+	padding-bottom: 13px;
+}
+
+.pisky-flight-setup-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px;
+	margin-top: 12px;
+}
+
+.pisky-flight-setup-grid .pisky-panel {
+	min-height: 176px;
+}
+
+.pisky-flight-setup-grid h3 {
+	margin: 17px 0 8px;
+	font-size: 16.5px;
+	font-weight: 620;
+}
+
+.pisky-flight-setup-grid p {
+	margin: 0;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+	line-height: 1.58;
+}
+
+.pisky-sharing-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 7px;
+	margin: 14px 0;
+}
+
+.pisky-sharing-badges span {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 7px 9px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.025);
+	color: var(--pisky-muted);
+	font-size: 12px;
+}
+
+.pisky-sharing-badges span.active {
+	border-color: rgba(94, 230, 170, 0.2);
+	background: rgba(94, 230, 170, 0.07);
+	color: #c2f5da;
+}
+
+.pisky-sharing-badges b {
+	color: var(--pisky-subtle);
+	font-size: 11px;
+	font-weight: 550;
+	text-transform: uppercase;
+}
+
+.pisky-flight-config-note {
+	margin-top: 12px;
+}
+
+.pisky-setup-form {
+	display: grid;
+	gap: 12px;
+}
+
+.pisky-setup-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.pisky-setup-section {
+	margin-top: 18px;
+}
+
+.pisky-form-intro {
+	margin: -2px 0 15px;
+	color: var(--pisky-muted);
+	font-size: 15px;
+	line-height: 1.6;
+}
+
+.pisky-form-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 13px;
+}
+
+.pisky-form-grid-four {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pisky-field {
+	display: flex;
+	min-width: 0;
+	margin: 0;
+	flex-direction: column;
+	gap: 7px;
+	color: #aeb5ca;
+	font-size: 14.5px;
+	font-weight: 580;
+}
+
+.pisky-field-wide {
+	grid-column: span 2;
+}
+
+.pisky-field input,
+.pisky-field select {
+	width: 100%;
+	height: 52px;
+	font-size: 15.5px;
+	font-weight: 480;
+}
+
+.pisky-field-hint {
+	margin: -2px 0 0;
+	color: #8b93ab;
+	font-size: 14px;
+	font-weight: 440;
+	line-height: 1.45;
+	letter-spacing: 0.1px;
+}
+
+.pisky-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	color: #c8cede;
+	font-size: 14.5px;
+	font-weight: 580;
+	cursor: pointer;
+}
+
+.pisky-toggle input {
+	width: 15px;
+	height: 15px;
+	margin: 0;
+	accent-color: var(--pisky-purple);
+}
+
+.pisky-sharing-config {
+	display: grid;
+	gap: 12px;
+	padding: 13px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 13px;
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.pisky-setup-savebar {
+	position: sticky;
+	bottom: 12px;
+	z-index: 8;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 18px;
+	padding: 13px 15px;
+	border: 1px solid rgba(154, 130, 244, 0.2);
+	border-radius: 15px;
+	background: rgba(13, 17, 33, 0.88);
+	box-shadow: 0 18px 45px rgba(0, 0, 0, 0.36);
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
+}
+
+.pisky-setup-savebar strong,
+.pisky-setup-savebar span {
+	display: block;
+}
+
+.pisky-setup-savebar strong {
+	color: #f1f3fc;
+	font-size: 14.5px;
+}
+
+.pisky-setup-savebar span {
+	margin-top: 3px;
+	color: var(--pisky-subtle);
+	font-size: 12px;
+}
+
+.pisky-provider-pill.is-active {
+	border-color: rgba(94, 230, 170, 0.24);
+	background: rgba(94, 230, 170, 0.08);
+	color: #c2f5da;
+}
+
+.pisky-weewx-wizard {
+	overflow: hidden;
+}
+
+.pisky-weewx-health {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 9px;
+	margin: 16px 0;
+}
+
+.pisky-weewx-health > div {
+	padding: 12px 13px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.pisky-weewx-health span,
+.pisky-weewx-health strong {
+	display: block;
+}
+
+.pisky-weewx-health span {
+	color: var(--pisky-subtle);
+	font-size: 12.5px;
+	text-transform: uppercase;
+}
+
+.pisky-weewx-health strong {
+	margin-top: 5px;
+	color: #eef1fb;
+	font-size: 15.5px;
+}
+
+.pisky-weewx-preset-form {
+	display: grid;
+	gap: 15px;
+}
+
+.pisky-weewx-endpoint {
+	display: grid;
+	grid-template-columns: auto auto minmax(180px, 1fr);
+	align-items: center;
+	gap: 8px 14px;
+	padding: 12px 13px;
+	border: 1px solid rgba(128, 99, 255, 0.18);
+	border-radius: 12px;
+	background: rgba(128, 99, 255, 0.055);
+}
+
+.pisky-weewx-endpoint > span,
+.pisky-weewx-endpoint small {
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+}
+
+.pisky-weewx-endpoint strong {
+	color: #eef1fb;
+	font-size: 15.5px;
+	white-space: nowrap;
+}
+
+.pisky-weewx-endpoint code {
+	color: #d9ceff;
+}
+
+.pisky-weewx-guides article {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 12px;
+	padding: 15px;
+	border: 1px solid rgba(154, 130, 244, 0.16);
+	border-radius: 14px;
+	background:
+		linear-gradient(135deg, rgba(154, 130, 244, 0.07), transparent 52%),
+		rgba(255, 255, 255, 0.025);
+}
+
+.pisky-weewx-guides article[hidden] {
+	display: none;
+}
+
+.pisky-weewx-guides strong {
+	color: #eef1fb;
+	font-size: 15.5px;
+}
+
+.pisky-weewx-guides p {
+	margin: 5px 0 0;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+	line-height: 1.6;
+}
+
+.pisky-weewx-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 24px;
+	padding: 13px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 13px;
+	background: rgba(255, 255, 255, 0.022);
+}
+
+.pisky-weewx-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.pisky-weewx-test-form {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 13px;
+	padding-top: 13px;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pisky-weewx-test-form span {
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+	line-height: 1.5;
+}
+
+.pisky-service-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 10px;
+}
+
+.pisky-service-card {
+	display: flex;
+	min-height: 205px;
+	padding: 14px;
+	border-radius: 16px;
+	flex-direction: column;
+}
+
+.pisky-service-card-heading {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.pisky-service-card-heading h3 {
+	margin: 8px 0 0;
+	font-size: 15.5px;
+	font-weight: 620;
+}
+
+.pisky-service-card-heading > i {
+	color: var(--pisky-subtle);
+}
+
+.pisky-service-state {
+	display: inline-flex;
+	padding: 4px 7px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 999px;
+	color: var(--pisky-muted);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.pisky-service-state.is-active {
+	border-color: rgba(94, 230, 170, 0.2);
+	background: rgba(94, 230, 170, 0.07);
+	color: #bff5d8;
+}
+
+.pisky-service-state.is-stopped {
+	border-color: rgba(255, 189, 122, 0.2);
+	background: rgba(255, 189, 122, 0.06);
+	color: #ffd1a3;
+}
+
+.pisky-service-card p {
+	margin: 16px 0 8px;
+	color: var(--pisky-muted);
+	font-size: 14px;
+	line-height: 1.55;
+}
+
+.pisky-service-card > small {
+	margin-bottom: 12px;
+	color: var(--pisky-subtle);
+	font-size: 12.5px;
+}
+
+.pisky-service-actions {
+	display: flex;
+	margin-top: auto;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.pisky-service-actions .btn {
+	min-height: 31px;
+	padding: 6px 8px;
+	font-size: 12.5px;
+}
+
+.pisky-advanced-config summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	cursor: pointer;
+	list-style: none;
+}
+
+.pisky-advanced-config summary::-webkit-details-marker {
+	display: none;
+}
+
+.pisky-advanced-config summary strong {
+	display: block;
+	margin-top: 6px;
+	font-size: 17.5px;
+}
+
+.pisky-advanced-config > p {
+	margin: 16px 0;
+	color: var(--pisky-muted);
+	font-size: 12.5px;
+	line-height: 1.6;
+}
+
+.pisky-code-editor {
+	min-height: 420px;
+	margin-bottom: 12px;
+	padding: 13px;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
+	line-height: 1.55;
+	resize: vertical;
+}
+
+.pisky-public-footer {
+	display: flex;
+	justify-content: space-between;
+	gap: 18px;
+	margin-top: 45px;
+	padding: 22px 3px 3px;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	color: var(--pisky-subtle);
+	font-size: 12px;
+}
+
+.pisky-public-footer a {
+	color: #aaa1db;
+}
+
+.pisky-public .pisky-image-vignette {
+	width: min(88%, 760px);
+}
+
+/* Compatibility layer for inherited Allsky control surfaces. */
+
+.pisky-admin #page-wrapper .panel-body {
+	padding: 20px;
+	font-size: 15.5px;
+	line-height: 1.55;
+}
+
+.pisky-admin #page-wrapper .panel-body label,
+.pisky-admin #page-wrapper .control-label,
+.pisky-admin #page-wrapper .checkbox,
+.pisky-admin #page-wrapper .radio {
+	color: #cbd0df;
+	font-size: 15.5px;
+	line-height: 1.45;
+}
+
+.pisky-admin #page-wrapper .form-control {
+	min-height: 42px;
+	padding: 9px 12px;
+	font-size: 15.5px;
+}
+
+.pisky-admin #page-wrapper textarea.form-control,
+.pisky-admin #page-wrapper select[multiple] {
+	height: auto;
+	min-height: 110px;
+}
+
+.pisky-admin #page-wrapper .input-group-addon {
+	border-color: rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.055);
+	color: #bfc5d7;
+}
+
+.pisky-admin #page-wrapper .nav-tabs {
+	border-color: rgba(255, 255, 255, 0.08);
+}
+
+.pisky-admin #page-wrapper .nav-tabs > li > a {
+	border: 1px solid transparent;
+	border-radius: 10px 10px 0 0;
+	color: #aeb5c9;
+	font-size: 15.5px;
+}
+
+.pisky-admin #page-wrapper .nav-tabs > li.active > a,
+.pisky-admin #page-wrapper .nav-tabs > li.active > a:hover,
+.pisky-admin #page-wrapper .nav-tabs > li.active > a:focus {
+	border-color: rgba(255, 255, 255, 0.1);
+	background: rgba(154, 130, 244, 0.1);
+	color: #fff;
+}
+
+.pisky-admin #page-wrapper .well,
+.pisky-admin #page-wrapper .alert,
+.pisky-admin .modal-content {
+	border-color: rgba(255, 255, 255, 0.1);
+	border-radius: 14px;
+	background: rgba(15, 20, 37, 0.88);
+	color: #cbd0df;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.pisky-admin #page-wrapper .table {
+	font-size: 15.5px;
+}
+
+.pisky-admin #page-wrapper .table > thead > tr > th {
+	padding-top: 12px;
+	padding-bottom: 12px;
+	color: #f0f2fa;
+	font-size: 14.5px;
+	letter-spacing: 0.04em;
+}
+
+.pisky-admin #page-wrapper .table > tbody > tr > td {
+	padding-top: 11px;
+	padding-bottom: 11px;
+	vertical-align: middle;
+}
+
+.pisky-admin #page-wrapper .CodeMirror {
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 12px;
+	font-size: 15.5px;
+}
+
+/* Branded administration login. */
+
+.pisky-login-shell {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	min-height: 100vh;
+	padding: 28px;
+	place-items: center;
+}
+
+.pisky-login-card {
+	width: min(100%, 460px);
+	padding: clamp(28px, 6vw, 48px);
+	border-radius: 28px;
+}
+
+.pisky-login-brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 13px;
+	margin-bottom: 44px;
+	color: #fff;
+}
+
+.pisky-login-brand > span:last-child,
+.pisky-login-brand strong,
+.pisky-login-brand small {
+	display: block;
+}
+
+.pisky-login-brand strong {
+	font-size: 20.5px;
+}
+
+.pisky-login-brand small {
+	margin-top: 2px;
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+}
+
+.pisky-login-card h1 {
+	margin: 10px 0 10px;
+	font-size: clamp(38px, 8vw, 56px);
+	font-weight: 560;
+	letter-spacing: -0.06em;
+}
+
+.pisky-login-card > p {
+	margin: 0 0 28px;
+	color: var(--pisky-muted);
+	font-size: 16.5px;
+	line-height: 1.6;
+}
+
+.pisky-login-card form {
+	display: grid;
+	gap: 16px;
+}
+
+.pisky-login-card form label {
+	display: grid;
+	gap: 8px;
+	color: #b9c0d2;
+	font-size: 14.5px;
+}
+
+.pisky-login-card form input {
+	width: 100%;
+	height: 48px;
+	padding: 10px 13px;
+	border: 1px solid rgba(255, 255, 255, 0.11);
+	border-radius: 12px;
+	background: rgba(4, 6, 15, 0.42);
+	color: #fff;
+	font-size: 17.5px;
+}
+
+.pisky-login-card form .btn {
+	height: 48px;
+	margin-top: 4px;
+	font-size: 15.5px;
+}
+
+.pisky-login-error {
+	margin-bottom: 18px;
+	padding: 11px 13px;
+	border: 1px solid rgba(255, 135, 152, 0.18);
+	border-radius: 11px;
+	background: rgba(255, 95, 116, 0.08);
+	color: #ffc3cb;
+	font-size: 14.5px;
+}
+
+.pisky-login-card footer {
+	margin-top: 26px;
+	padding-top: 20px;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+	font-size: 14.5px;
+	text-align: center;
+}
+
+@media (max-width: 1180px) {
+	.pisky-form-grid-four,
+	.pisky-service-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.pisky-public-grid,
+	.pisky-public-context {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-public-conditions {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+	}
+
+	.pisky-admin-live-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-flight-admin-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-admin-condition-panel dl {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+	}
+
+	.pisky-admin-condition-panel dl div {
+		flex-direction: column;
+	}
+
+	.pisky-condition-map {
+		grid-template-columns: auto 1fr;
+	}
+
+	.pisky-condition-map dl {
+		grid-column: 1 / -1;
+	}
+}
+
+@media (max-width: 900px) {
+	.pisky-setup-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-public-flight-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-flight-setup-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.navbar-default.sidebar {
+		position: relative;
+		top: 0;
+		bottom: auto;
+		left: 0;
+		width: calc(100% - 24px);
+		margin: 0 12px;
+		padding: 0;
+		overflow: visible;
+		border: 0;
+		background: transparent;
+		box-shadow: none;
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+	}
+
+	.navbar-default.sidebar .sidebar-nav.navbar-collapse {
+		margin-top: 12px;
+		padding: 13px 9px;
+		border: 1px solid var(--pisky-border);
+		border-radius: 18px;
+		background:
+			linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%),
+			rgba(17, 22, 40, 0.94);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 65px rgba(0, 0, 0, 0.27);
+		backdrop-filter: blur(26px) saturate(140%);
+		-webkit-backdrop-filter: blur(26px) saturate(140%);
+	}
+
+	.navbar-default.sidebar .sidebar-nav.navbar-collapse.collapse:not(.in) {
+		display: none !important;
+	}
+
+	.navbar-default.sidebar .sidebar-nav.navbar-collapse.collapse.in {
+		display: block !important;
+		height: auto !important;
+		overflow: visible !important;
+	}
+
+	#page-wrapper,
+	.dark #page-wrapper {
+		margin: 0 12px;
+		padding-top: 22px;
+	}
+
+	.navbar-toggle {
+		position: relative;
+		z-index: 2;
+		display: block;
+		margin-top: 18px;
+		border-color: rgba(255, 255, 255, 0.1);
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.navbar-default .navbar-toggle .icon-bar {
+		background-color: #b9bfd0;
+	}
+
+	.pisky-navbar-brand {
+		position: absolute;
+		top: 0;
+		left: 0;
+		padding-left: 64px !important;
+	}
+
+	.pisky-public-nav {
+		grid-template-columns: 1fr auto;
+	}
+
+	.pisky-public-links {
+		display: none;
+	}
+
+	.pisky-public-intro {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 18px;
+	}
+
+	.pisky-public-conditions {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-metric-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.pisky-guide-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 650px) {
+	.pisky-form-grid,
+	.pisky-form-grid-four,
+	.pisky-service-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-field-wide {
+		grid-column: auto;
+	}
+
+	.pisky-setup-savebar {
+		position: static;
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.pisky-weewx-health {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-weewx-endpoint {
+		grid-template-columns: 1fr;
+	}
+
+	.pisky-weewx-actions,
+	.pisky-weewx-test-form {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.navbar.navbar-default.navbar-static-top {
+		margin: 8px 8px 0 !important;
+	}
+
+	.navbar-default.sidebar {
+		width: calc(100% - 16px);
+		margin: 0 8px;
+	}
+
+	.pisky-brand-copy small,
+	.version-title {
+		display: none;
+	}
+
+	.pisky-admin-footer,
+	.pisky-public-footer,
+	.pisky-page-heading {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.pisky-public-shell {
+		padding: 10px;
+	}
+
+	.pisky-public-actions .pisky-live-pill {
+		display: none;
+	}
+
+	.pisky-public-intro {
+		padding: 48px 6px 26px;
+	}
+
+	.pisky-public-intro h1 {
+		font-size: 58px;
+	}
+
+	.pisky-public-flight-card {
+		padding: 10px;
+	}
+
+	.pisky-flight-summary {
+		align-items: flex-end;
+		flex-direction: column;
+		gap: 5px;
+	}
+
+	.pisky-flight-list-wrap {
+		padding: 12px 5px;
+	}
+
+	.pisky-flight-table th,
+	.pisky-flight-table td {
+		padding-right: 5px;
+		padding-left: 5px;
+	}
+
+	.pisky-live-container {
+		min-height: 430px;
+	}
+
+	.pisky-capture-footer {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.pisky-condition-map {
+		grid-template-columns: 1fr;
+		text-align: center;
+	}
+
+	.pisky-weather-orb {
+		margin: auto;
+	}
+
+	.pisky-condition-map dl {
+		grid-column: auto;
+	}
+
+	.pisky-admin-condition-panel dl {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.pisky-location-card {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		scroll-behavior: auto !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* Theme control and inherited camera settings */
+
+.pisky-theme-toggle {
+	display: flex;
+	width: calc(100% - 20px);
+	align-items: center;
+	gap: 8px;
+	margin: 8px 10px 14px;
+	padding: 11px 13px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.045);
+	color: var(--pisky-muted);
+	font: inherit;
+	font-size: 15.5px;
+	text-align: left;
+	transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.pisky-theme-toggle:hover,
+.pisky-theme-toggle:focus-visible {
+	border-color: rgba(154, 130, 244, 0.48);
+	background: rgba(154, 130, 244, 0.11);
+	color: var(--pisky-ink);
+	outline: none;
+}
+
+.pisky-allsky-settings > .col-lg-12 {
+	padding: 0;
+}
+
+.pisky-allsky-settings .panel.panel-primary {
+	overflow: visible;
+	border: 1px solid var(--pisky-border);
+	border-radius: 22px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 32%),
+		var(--pisky-glass);
+	box-shadow: var(--pisky-shadow);
+	backdrop-filter: blur(26px) saturate(140%);
+	-webkit-backdrop-filter: blur(26px) saturate(140%);
+}
+
+.pisky-allsky-settings .panel > .panel-heading {
+	padding: 24px 26px 20px;
+	border: 0;
+	border-bottom: 1px solid var(--pisky-border);
+	border-radius: 21px 21px 0 0;
+	background: transparent;
+	color: var(--pisky-ink);
+}
+
+.pisky-allsky-settings .panel-heading h1 {
+	margin: 7px 0 0;
+	color: var(--pisky-ink);
+	font-size: clamp(22px, 2vw, 30px);
+	font-weight: 720;
+	letter-spacing: -0.035em;
+}
+
+.pisky-allsky-settings .panel-heading h1 small {
+	display: inline-block;
+	margin-left: 8px;
+	color: var(--pisky-muted);
+	font-size: 0.52em;
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+.pisky-allsky-settings .panel-body {
+	padding: 12px !important;
+	background: transparent;
+	color: var(--pisky-ink);
+}
+
+.pisky-allsky-settings .settings-nav {
+	top: 10px;
+	z-index: 25;
+	margin: 0 0 12px;
+	padding: 14px 16px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 16px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 42%),
+		var(--pisky-glass-strong);
+	box-shadow: 0 15px 46px rgba(0, 0, 0, 0.18);
+	backdrop-filter: blur(24px) saturate(150%);
+	-webkit-backdrop-filter: blur(24px) saturate(150%);
+	color: var(--pisky-muted);
+}
+
+.pisky-allsky-settings .settings-buttons,
+.pisky-allsky-settings .settings-buttons .row {
+	width: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+.pisky-allsky-settings .settings-buttons [class*="col-"] {
+	padding: 0;
+}
+
+.pisky-allsky-settings .settings-buttons .btn {
+	min-height: 42px;
+	margin: 0 8px 0 0;
+	padding: 9px 14px;
+	border-radius: 11px;
+	font-size: 15.5px;
+	font-weight: 700;
+}
+
+.pisky-allsky-settings .settings-buttons .mt-4 {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 12px !important;
+	color: var(--pisky-muted);
+	font-size: 15.5px;
+}
+
+.pisky-settings-table {
+	border-collapse: separate;
+	border-spacing: 0 8px;
+	table-layout: fixed;
+	color: var(--pisky-ink);
+}
+
+.pisky-settings-table > tbody,
+.pisky-settings-table > .settings-header {
+	background: transparent !important;
+}
+
+.pisky-settings-table tr.headingRow > td {
+	padding: 0;
+}
+
+.pisky-settings-table .settingsHeader {
+	width: 100%;
+	border: 1px solid var(--pisky-border);
+	border-radius: 14px;
+	background:
+		linear-gradient(120deg, rgba(154, 130, 244, 0.1), transparent 52%),
+		rgba(255, 255, 255, 0.045);
+	color: var(--pisky-ink);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+	cursor: pointer;
+}
+
+.pisky-settings-table .settingsHeader td {
+	padding: 13px 15px;
+	border: 0;
+	background: transparent;
+	color: inherit;
+}
+
+.pisky-settings-table .headingToggle {
+	width: 42px;
+	color: var(--pisky-purple);
+	text-align: center;
+}
+
+.pisky-settings-table .headingTitle {
+	color: var(--pisky-ink);
+	font-size: 17.5px;
+	font-weight: 720;
+	letter-spacing: -0.01em;
+}
+
+.pisky-settings-table .settings-header > tr.form-group > td,
+.pisky-settings-table > tbody > tr.form-group > td {
+	padding: 13px 15px;
+	border-top: 1px solid var(--pisky-border);
+	border-bottom: 1px solid var(--pisky-border);
+	background: rgba(255, 255, 255, 0.028);
+	color: var(--pisky-ink);
+	vertical-align: middle;
+}
+
+.pisky-settings-table .settings-header > tr.form-group > td:first-child,
+.pisky-settings-table > tbody > tr.form-group > td:first-child {
+	border-left: 1px solid var(--pisky-border);
+	border-radius: 13px 0 0 13px;
+}
+
+.pisky-settings-table .settings-header > tr.form-group > td:last-child,
+.pisky-settings-table > tbody > tr.form-group > td:last-child {
+	border-right: 1px solid var(--pisky-border);
+	border-radius: 0 13px 13px 0;
+}
+
+.pisky-settings-table .subSettingsHeader {
+	margin-top: 8px;
+	padding: 10px 13px;
+	border-left: 3px solid var(--pisky-purple);
+	border-radius: 0 9px 9px 0;
+	background: rgba(154, 130, 244, 0.07);
+	color: var(--pisky-ink);
+	font-weight: 700;
+}
+
+.pisky-settings-table label,
+.pisky-settings-table .WebUISetting {
+	color: var(--pisky-ink);
+}
+
+.pisky-settings-table .setting-description,
+.pisky-settings-table .description,
+.pisky-settings-table small {
+	color: var(--pisky-muted);
+}
+
+.pisky-settings-table input:not([type="checkbox"]):not([type="radio"]),
+.pisky-settings-table select,
+.pisky-settings-table textarea {
+	border-color: var(--pisky-border) !important;
+	border-radius: 10px !important;
+	background: rgba(5, 8, 19, 0.42) !important;
+	color: var(--pisky-ink) !important;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+body.pisky-theme-light .navbar.navbar-default.navbar-static-top,
+body.pisky-theme-light .navbar-default.sidebar,
+body.pisky-theme-light .pisky-allsky-settings .settings-nav {
+	background-color: rgba(255, 255, 255, 0.72);
+}
+
+body.pisky-theme-light .pisky-settings-table input:not([type="checkbox"]):not([type="radio"]),
+body.pisky-theme-light .pisky-settings-table select,
+body.pisky-theme-light .pisky-settings-table textarea {
+	background: rgba(255, 255, 255, 0.82) !important;
+}
+
+@media (max-width: 760px) {
+	.pisky-allsky-settings .panel-body {
+		padding: 8px !important;
+	}
+
+	.pisky-allsky-settings .settings-nav {
+		position: static;
+	}
+
+	.pisky-settings-table,
+	.pisky-settings-table > tbody,
+	.pisky-settings-table .settings-header,
+	.pisky-settings-table tr,
+	.pisky-settings-table td {
+		display: block;
+		width: 100% !important;
+	}
+
+	.pisky-settings-table .settings-header > tr.form-group > td,
+	.pisky-settings-table > tbody > tr.form-group > td {
+		border-width: 0 1px;
+		border-radius: 0;
+	}
+
+	.pisky-settings-table .settings-header > tr.form-group > td:first-child,
+	.pisky-settings-table > tbody > tr.form-group > td:first-child {
+		border-top-width: 1px;
+		border-radius: 13px 13px 0 0;
+	}
+
+	.pisky-settings-table .settings-header > tr.form-group > td:last-child,
+	.pisky-settings-table > tbody > tr.form-group > td:last-child {
+		border-bottom-width: 1px;
+		border-radius: 0 0 13px 13px;
+	}
+}
+
+.pisky-daily-forecast {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(120px, 1fr));
+	gap: 10px;
+	overflow-x: auto;
+	padding-bottom: 4px;
+}
+
+.pisky-daily-forecast article {
+	display: flex;
+	min-height: 148px;
+	flex-direction: column;
+	gap: 8px;
+	padding: 16px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 15px;
+	background: rgba(255, 255, 255, 0.035);
+}
+
+.pisky-daily-forecast article > strong {
+	color: var(--pisky-ink);
+	font-size: 16.5px;
+}
+
+.pisky-daily-forecast article > span {
+	min-height: 40px;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+	line-height: 1.45;
+}
+
+.pisky-daily-forecast article > b {
+	margin-top: auto;
+	color: var(--pisky-ink);
+	font-size: 18.5px;
+}
+
+.pisky-daily-forecast article > small,
+.pisky-forecast-empty {
+	color: var(--pisky-subtle);
+	font-size: 13.5px;
+}
+
+.pisky-astronomy-grid,
+.pisky-flight-detail-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+	gap: 10px;
+	margin: 0;
+}
+
+.pisky-astronomy-grid > div,
+.pisky-flight-detail-grid > div {
+	padding: 13px 14px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 13px;
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.pisky-astronomy-grid dt,
+.pisky-flight-detail-grid dt {
+	color: var(--pisky-subtle);
+	font-size: 13.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.pisky-astronomy-grid dd,
+.pisky-flight-detail-grid dd {
+	margin: 5px 0 0;
+	color: var(--pisky-ink);
+	font-size: 17.5px;
+	font-weight: 700;
+}
+
+.pisky-flight-table tbody tr[role="button"] {
+	cursor: pointer;
+}
+
+.pisky-flight-table tbody tr[role="button"]:hover td,
+.pisky-flight-table tbody tr[role="button"]:focus td,
+.pisky-flight-table tbody tr.is-selected td {
+	background: rgba(154, 130, 244, 0.11);
+}
+
+.pisky-flight-table tbody tr[role="button"]:focus {
+	outline: none;
+}
+
+button.pisky-aircraft-blip {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.pisky-flight-detail {
+	margin: 14px 0 0;
+	padding: 18px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.035);
+}
+
+.pisky-flight-detail h3 {
+	margin: 7px 0 5px;
+	color: var(--pisky-ink);
+	font-size: 21.5px;
+}
+
+.pisky-flight-detail > p,
+.pisky-flight-detail > small {
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+}
+
+.pisky-flight-detail-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 13px 0 7px;
+}
+
+.pisky-flight-detail-links a {
+	padding: 8px 10px;
+	border: 1px solid rgba(154, 130, 244, 0.24);
+	border-radius: 10px;
+	background: rgba(154, 130, 244, 0.08);
+	font-size: 14.5px;
+	font-weight: 700;
+}
+
+/*
+ * Six across rather than filling the row.
+ *
+ * auto-fit packed eight narrow cards onto a wide screen, leaving the longer
+ * labels wrapping to three lines against a switch and a glyph. Capping the
+ * track count gives each card room to breathe and divides the usual sensor
+ * count into even rows. Narrower screens step down rather than shrinking the
+ * cards further.
+ */
+.pisky-observation-grid {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 12px;
+}
+
+@media (max-width: 1500px) {
+	.pisky-observation-grid {
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 1250px) {
+	.pisky-observation-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 980px) {
+	.pisky-observation-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 720px) {
+	.pisky-observation-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 430px) {
+	.pisky-observation-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.pisky-observation-grid[hidden] {
+	display: none;
+}
+
+.pisky-observation-grid article {
+	display: flex;
+	min-height: 92px;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 14px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.032);
+}
+
+.pisky-observation-grid span {
+	color: var(--pisky-subtle);
+	font-size: 13.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.pisky-observation-grid strong {
+	color: var(--pisky-ink);
+	font-size: 20.5px;
+}
+
+/* Modular visitor pages and appliance-site editor */
+
+.pisky-public-page-intro {
+	padding-bottom: 18px;
+}
+
+.pisky-public-page-card,
+.pisky-public .pisky-panel {
+	margin-bottom: 18px;
+}
+
+.pisky-public-theme {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font: inherit;
+	cursor: pointer;
+}
+
+.pisky-public-theme i {
+	font-size: 13.5px;
+}
+
+.pisky-sky-lens {
+	position: absolute;
+	right: clamp(18px, 3vw, 40px);
+	bottom: clamp(18px, 3vw, 40px);
+	z-index: 4;
+	width: clamp(110px, 18vw, 210px);
+	aspect-ratio: 1;
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	border-radius: 50%;
+	background: #070914;
+	box-shadow:
+		0 20px 50px rgba(0, 0, 0, 0.38),
+		inset 0 1px 0 rgba(255, 255, 255, 0.22),
+		0 0 0 8px rgba(7, 9, 20, 0.24);
+}
+
+.pisky-sky-lens::after {
+	position: absolute;
+	inset: 9%;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 50%;
+	content: "";
+}
+
+.pisky-sky-lens img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transform: scale(1.08);
+}
+
+.pisky-public-flight-page-grid {
+	align-items: start;
+}
+
+.pisky-metric-text {
+	font-size: clamp(14px, 2vw, 20px) !important;
+}
+
+.pisky-archive-search {
+	display: flex;
+	align-items: end;
+	gap: 10px;
+	margin-bottom: 18px;
+	padding: 16px;
+	border-radius: 17px;
+}
+
+.pisky-archive-search label {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 7px;
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.pisky-archive-search input,
+.pisky-archive-search button {
+	min-height: 42px;
+	padding: 9px 12px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 11px;
+	background: rgba(5, 8, 19, 0.4);
+	color: var(--pisky-ink);
+	font: inherit;
+}
+
+.pisky-archive-search button {
+	background: rgba(154, 130, 244, 0.14);
+	font-weight: 700;
+	cursor: pointer;
+}
+
+/* Column count is set further down; this carries the spacing so the grid does
+   not butt against the panel that follows it. */
+.pisky-archive-day-grid {
+	display: grid;
+	gap: 14px;
+	margin-bottom: 22px;
+}
+
+.pisky-archive-day {
+	overflow: hidden;
+	border-radius: 17px;
+	color: var(--pisky-ink);
+}
+
+/* Poster frames are keograms and startrails, which are wide strips rather than
+   photographs. A tall box crops them to an uninformative sliver, so the frame
+   is shallow and the whole strip is shown. */
+.pisky-archive-day img {
+	width: 100%;
+	aspect-ratio: 16 / 6;
+	object-fit: cover;
+	object-position: center;
+	background: #050710;
+}
+
+.pisky-archive-day > div {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 14px 15px;
+}
+
+.pisky-archive-day strong {
+	font-size: 17.5px;
+}
+
+.pisky-archive-day span {
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+}
+
+.pisky-archive-image-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 8px;
+}
+
+.pisky-archive-image-grid a {
+	overflow: hidden;
+	border: 1px solid var(--pisky-border);
+	border-radius: 12px;
+	background: #050710;
+}
+
+.pisky-archive-image-grid img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	transition: transform 180ms ease;
+}
+
+.pisky-archive-image-grid a:hover img {
+	transform: scale(1.035);
+}
+
+.pisky-archive-videos {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.pisky-archive-videos video {
+	width: 100%;
+	border-radius: 13px;
+	background: #000;
+}
+
+.pisky-rich-content {
+	max-width: 78ch;
+	color: var(--pisky-muted);
+	font-size: 17.5px;
+	line-height: 1.8;
+}
+
+.pisky-rich-content h2,
+.pisky-rich-content h3,
+.pisky-rich-content h4 {
+	color: var(--pisky-ink);
+}
+
+.pisky-equipment-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 1px;
+	overflow: hidden;
+	margin: 0 0 18px;
+	padding: 1px;
+	border-radius: 18px;
+}
+
+.pisky-equipment-grid > div {
+	padding: 17px;
+	background: rgba(255, 255, 255, 0.035);
+}
+
+.pisky-equipment-grid dt {
+	color: var(--pisky-subtle);
+	font-size: 13.5px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.pisky-equipment-grid dd {
+	margin: 7px 0 0;
+	color: var(--pisky-ink);
+	font-size: 16.5px;
+	line-height: 1.55;
+}
+
+.pisky-station-gallery,
+.pisky-gallery-admin {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.pisky-station-gallery figure,
+.pisky-gallery-admin figure {
+	overflow: hidden;
+	margin: 0;
+	border-radius: 17px;
+}
+
+.pisky-station-gallery img,
+.pisky-gallery-admin img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	object-fit: cover;
+}
+
+.pisky-station-gallery figcaption,
+.pisky-gallery-admin figcaption {
+	padding: 11px 13px;
+	color: var(--pisky-muted);
+	font-size: 14.5px;
+}
+
+.pisky-gallery-admin figure {
+	padding-bottom: 10px;
+	border: 1px solid var(--pisky-border);
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.pisky-gallery-admin .btn {
+	margin-left: 10px;
+}
+
+.pisky-content-editor {
+	display: grid;
+	gap: 16px;
+}
+
+.pisky-wysiwyg-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 8px;
+	border: 1px solid var(--pisky-border);
+	border-bottom: 0;
+	border-radius: 12px 12px 0 0;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.pisky-wysiwyg-toolbar button {
+	padding: 6px 9px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 8px;
+	background: rgba(154, 130, 244, 0.08);
+	color: var(--pisky-ink);
+	font-size: 14.5px;
+	cursor: pointer;
+}
+
+.pisky-wysiwyg {
+	min-height: 220px;
+	padding: 15px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 0 0 12px 12px;
+	background: rgba(5, 8, 19, 0.4);
+	color: var(--pisky-ink);
+	line-height: 1.65;
+	outline: none;
+}
+
+body.pisky-theme-light .pisky-archive-search input,
+body.pisky-theme-light .pisky-wysiwyg {
+	background: rgba(255, 255, 255, 0.76);
+}
+
+body.pisky-public.pisky-theme-light {
+	background:
+		radial-gradient(circle at 24% -10%, rgba(126, 91, 220, 0.18), transparent 34rem),
+		radial-gradient(circle at 105% 30%, rgba(44, 164, 202, 0.15), transparent 33rem),
+		linear-gradient(145deg, #eef2fa 0%, #f8faff 46%, #e9eff9 100%);
+}
+
+body.pisky-theme-light .pisky-glass {
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.35) 44%),
+		rgba(245, 248, 255, 0.62);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.95),
+		0 20px 64px rgba(55, 69, 107, 0.14);
+}
+
+body.pisky-theme-light .pisky-eyebrow,
+body.pisky-theme-light .pisky-metric > span,
+body.pisky-theme-light .pisky-metric > small,
+body.pisky-theme-light .pisky-public-brand small,
+body.pisky-theme-light .pisky-flight-detail > p,
+body.pisky-theme-light .pisky-flight-detail > small {
+	color: #5c6781;
+}
+
+body.pisky-theme-light .pisky-public-brand strong,
+body.pisky-theme-light .pisky-public-intro h1,
+body.pisky-theme-light .pisky-page-heading h1,
+body.pisky-theme-light .pisky-panel-heading h2,
+body.pisky-theme-light .pisky-card-heading h2,
+body.pisky-theme-light .pisky-metric > strong,
+body.pisky-theme-light .pisky-metric small b {
+	color: var(--pisky-ink);
+}
+
+body.pisky-theme-light .pisky-public-intro > p,
+body.pisky-theme-light .pisky-data-attribution,
+body.pisky-theme-light .pisky-public-footer,
+body.pisky-theme-light .pisky-public-footer a {
+	color: #59647b;
+}
+
+body.pisky-theme-light .pisky-public-links {
+	border-color: rgba(37, 50, 82, 0.1);
+	background: rgba(55, 69, 107, 0.07);
+}
+
+body.pisky-theme-light .pisky-public-links a {
+	color: #59647b;
+}
+
+body.pisky-theme-light .pisky-public-links a:hover,
+body.pisky-theme-light .pisky-public-links a.active {
+	background: rgba(101, 76, 190, 0.13);
+	color: #2b1d6b;
+}
+
+body.pisky-theme-light .pisky-subtle-button {
+	border-color: rgba(37, 50, 82, 0.12);
+	background: rgba(255, 255, 255, 0.54);
+	color: #27314b;
+}
+
+body.pisky-theme-light .pisky-provider-pill {
+	color: #5643a3;
+}
+
+body.pisky-theme-light .pisky-live-pill.is-error {
+	color: #9c3042;
+}
+
+body.pisky-theme-light .pisky-settings-table .settingsHeader,
+body.pisky-theme-light .pisky-settings-table .settings-header > tr.form-group > td,
+body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
+	background-color: rgba(255, 255, 255, 0.56);
+}
+
+@media (max-width: 900px) {
+	.pisky-sky-lens {
+		width: clamp(90px, 24vw, 150px);
+	}
+}
+
+@media (max-width: 650px) {
+	.pisky-public-theme span {
+		display: none;
+	}
+
+	.pisky-sky-lens {
+		right: 12px;
+		bottom: 62px;
+		width: 92px;
+	}
+
+	.pisky-archive-search {
+		align-items: stretch;
+		flex-direction: column;
+	}
+}
+
+/* ------------------------------------------------------------------
+ * Aircraft radar scope
+ *
+ * A canvas fills the stage and glass panels float over it. The overlay
+ * grid is pointer-transparent so the scope stays draggable/hoverable
+ * everywhere the panels do not cover.
+ * ------------------------------------------------------------------ */
+
+.pisky-scope-stage {
+	position: relative;
+	overflow: hidden;
+	height: clamp(520px, 74vh, 860px);
+	border: 1px solid var(--pisky-border);
+	border-radius: 28px;
+	box-shadow: var(--pisky-shadow);
+	isolation: isolate;
+}
+
+.pisky-scope-canvas {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.pisky-scope-overlay {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	padding: 18px;
+	gap: 14px;
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-rows: auto minmax(0, 1fr);
+	pointer-events: none;
+}
+
+.pisky-scope-overlay > * {
+	pointer-events: auto;
+}
+
+.pisky-scope-stats {
+	display: flex;
+	padding: 10px 4px;
+	border-radius: 18px;
+	grid-row: 1;
+	grid-column: 2;
+	justify-self: end;
+}
+
+.pisky-scope-stat {
+	min-width: 74px;
+	padding: 2px 16px;
+	text-align: center;
+}
+
+.pisky-scope-stat + .pisky-scope-stat {
+	border-left: 1px solid var(--pisky-border);
+}
+
+.pisky-scope-stat span {
+	display: block;
+	color: var(--pisky-subtle);
+	font-size: 12.5px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.pisky-scope-stat strong {
+	display: block;
+	margin-top: 3px;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 23px;
+	font-weight: 500;
+}
+
+.pisky-scope-list {
+	display: flex;
+	overflow: hidden;
+	width: clamp(230px, 25vw, 290px);
+	border-radius: 20px;
+	flex-direction: column;
+	grid-row: 2;
+	grid-column: 2;
+	justify-self: end;
+}
+
+.pisky-scope-list header {
+	display: flex;
+	padding: 13px 16px 10px;
+	border-bottom: 1px solid var(--pisky-border);
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.pisky-scope-list header small {
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+}
+
+.pisky-scope-list header small.is-error {
+	color: var(--pisky-danger);
+}
+
+.pisky-scope-rows {
+	overflow-y: auto;
+	flex: 1;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.pisky-scope-rows::-webkit-scrollbar {
+	width: 7px;
+}
+
+.pisky-scope-rows::-webkit-scrollbar-thumb {
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.16);
+}
+
+.pisky-scope-table td {
+	font-size: 13.5px;
+}
+
+.pisky-scope-table tr {
+	cursor: pointer;
+	transition: background 0.16s ease;
+}
+
+.pisky-scope-table tr:hover {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.pisky-scope-table tr.is-selected {
+	background: rgba(255, 189, 122, 0.14);
+	box-shadow: inset 0 0 0 1px rgba(255, 189, 122, 0.34);
+}
+
+.pisky-scope-detail {
+	overflow-y: auto;
+	max-width: min(92%, 430px);
+	max-height: 46%;
+	padding: 16px 18px;
+	border-radius: 20px;
+	grid-row: 2;
+	grid-column: 1;
+	align-self: end;
+	justify-self: start;
+	transition: max-height 0.24s ease;
+}
+
+/*
+ * With an aircraft selected the card takes the full height of the scope, so
+ * the detail rows and the external lookup links are all reachable without
+ * scrolling inside a short panel.
+ */
+.pisky-scope-detail.is-open {
+	max-height: calc(100% - 24px);
+	grid-row: 1 / -1;
+	align-self: stretch;
+}
+
+.pisky-scope-detail.is-open .pisky-flight-detail-grid {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pisky-scope-detail.is-open .pisky-flight-detail-links {
+	position: sticky;
+	bottom: 0;
+	padding-top: 10px;
+	margin-top: auto;
+	background: linear-gradient(180deg, transparent, var(--pisky-glass-strong) 40%);
+}
+
+.pisky-scope-detail h3 {
+	margin: 6px 0 4px;
+	font-size: 23px;
+	letter-spacing: 0.2px;
+}
+
+.pisky-scope-detail p {
+	margin: 0 0 8px;
+	color: var(--pisky-muted);
+	font-size: 15px;
+}
+
+.pisky-scope-tag {
+	position: absolute;
+	z-index: 3;
+	padding: 4px 9px;
+	border-radius: 9px;
+	opacity: 0;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 14px;
+	white-space: nowrap;
+	pointer-events: none;
+	transform: translate(-50%, -160%);
+	transition: opacity 0.12s ease;
+}
+
+.pisky-scope-tag.is-visible {
+	opacity: 1;
+}
+
+.pisky-scope-credit {
+	position: absolute;
+	right: 18px;
+	bottom: 12px;
+	left: 18px;
+	display: flex;
+	gap: 14px;
+	justify-content: flex-end;
+	color: var(--pisky-subtle);
+	font-size: 13px;
+	pointer-events: none;
+}
+
+.pisky-scope-credit b {
+	color: var(--pisky-muted);
+	font-weight: 600;
+}
+
+@media (max-width: 900px) {
+	.pisky-scope-stage {
+		height: clamp(560px, 82vh, 820px);
+	}
+
+	.pisky-scope-overlay {
+		padding: 12px;
+		gap: 10px;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto minmax(0, 1fr) auto;
+	}
+
+	.pisky-scope-stats {
+		overflow-x: auto;
+		grid-row: 1;
+		grid-column: 1;
+		justify-self: stretch;
+		justify-content: space-between;
+	}
+
+	.pisky-scope-stat {
+		min-width: 0;
+		padding: 2px 10px;
+	}
+
+	.pisky-scope-list {
+		width: auto;
+		max-height: 34vh;
+		grid-row: 3;
+		grid-column: 1;
+		justify-self: stretch;
+		align-self: end;
+	}
+
+	.pisky-scope-detail {
+		max-width: none;
+		max-height: 38%;
+		grid-row: 2;
+		grid-column: 1;
+		justify-self: stretch;
+	}
+
+	.pisky-scope-credit {
+		justify-content: flex-start;
+	}
+}
+
+/* Compact scope used inside the overview's aircraft summary card. */
+/* The administration page shows the scope inside an existing panel, so it
+   needs less height and a radius matching the panel it sits in. */
+.pisky-scope-stage-admin {
+	height: clamp(380px, 48vh, 560px);
+	margin-bottom: 12px;
+	border-radius: 16px;
+}
+
+.pisky-scope-stage-compact {
+	height: clamp(240px, 34vh, 340px);
+	border-radius: 20px;
+}
+
+.pisky-scope-stage-compact .pisky-scope-canvas {
+	cursor: default;
+}
+
+/* ------------------------------------------------------------------
+ * Living weather icons
+ *
+ * Built inline by pisky-weather-icons.js from shared primitives. Colour
+ * comes from the theme variables so the icons sit in the same palette as
+ * the rest of the interface, and all motion stops under
+ * prefers-reduced-motion while the artwork stays readable.
+ * ------------------------------------------------------------------ */
+
+.pisky-weather-icon {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.pisky-weather-icon .pisky-icon-cloud path {
+	fill: rgba(226, 233, 250, 0.9);
+	stroke: rgba(255, 255, 255, 0.32);
+	stroke-width: 1;
+}
+
+.pisky-weather-icon .pisky-icon-cloud.is-dark path {
+	fill: rgba(163, 174, 199, 0.92);
+}
+
+.pisky-weather-icon .pisky-icon-sun .pisky-icon-disc {
+	fill: var(--pisky-orange);
+}
+
+.pisky-weather-icon .pisky-icon-sun line {
+	stroke: var(--pisky-orange);
+	stroke-width: 3;
+	stroke-linecap: round;
+}
+
+.pisky-weather-icon .pisky-icon-moon .pisky-icon-disc {
+	fill: #dfe6ff;
+}
+
+.pisky-weather-icon .pisky-icon-moon .pisky-icon-glow {
+	fill: rgba(190, 205, 255, 0.16);
+	animation: pisky-icon-breathe 6s ease-in-out infinite;
+	transform-origin: 32px 30px;
+}
+
+.pisky-weather-icon .pisky-icon-behind {
+	transform: translate(-9px, -7px) scale(0.78);
+	transform-origin: 32px 32px;
+}
+
+.pisky-weather-icon .pisky-icon-drop {
+	stroke: var(--pisky-cyan);
+	stroke-width: 2.6;
+	stroke-linecap: round;
+}
+
+.pisky-weather-icon .is-light .pisky-icon-drop {
+	stroke-width: 1.8;
+	opacity: 0.75;
+}
+
+.pisky-weather-icon .pisky-icon-flake {
+	fill: #e8f2ff;
+}
+
+.pisky-weather-icon .pisky-icon-bolt path {
+	fill: var(--pisky-orange);
+}
+
+.pisky-weather-icon .pisky-icon-fog line {
+	stroke: rgba(214, 224, 245, 0.75);
+	stroke-width: 2.6;
+	stroke-linecap: round;
+}
+
+/* Motion */
+.pisky-weather-icon .pisky-icon-rays {
+	transform-origin: 32px 32px;
+	animation: pisky-icon-spin 26s linear infinite;
+}
+
+.pisky-weather-icon .pisky-icon-cloud {
+	transform-origin: 34px 36px;
+	animation: pisky-icon-drift 7s ease-in-out infinite;
+}
+
+.pisky-weather-icon .pisky-icon-drop,
+.pisky-weather-icon .pisky-icon-flake {
+	animation: pisky-icon-fall 1.5s linear infinite;
+}
+
+.pisky-weather-icon .pisky-icon-flake {
+	animation-duration: 2.9s;
+}
+
+.pisky-weather-icon .pisky-icon-bolt {
+	transform-origin: 34px 52px;
+	animation: pisky-icon-flash 3.4s steps(1, end) infinite;
+}
+
+.pisky-weather-icon .pisky-icon-fog line {
+	animation: pisky-icon-slide 4.2s ease-in-out infinite;
+}
+
+@keyframes pisky-icon-spin {
+	to { transform: rotate(360deg); }
+}
+
+@keyframes pisky-icon-drift {
+	0%, 100% { transform: translateX(-1.5px); }
+	50% { transform: translateX(1.5px); }
+}
+
+@keyframes pisky-icon-fall {
+	0% { opacity: 0; transform: translateY(-6px); }
+	20% { opacity: 1; }
+	80% { opacity: 1; }
+	100% { opacity: 0; transform: translateY(9px); }
+}
+
+@keyframes pisky-icon-flash {
+	0%, 88%, 100% { opacity: 1; }
+	90%, 96% { opacity: 0.25; }
+}
+
+@keyframes pisky-icon-slide {
+	0%, 100% { transform: translateX(-2.5px); }
+	50% { transform: translateX(2.5px); }
+}
+
+@keyframes pisky-icon-breathe {
+	0%, 100% { opacity: 0.55; transform: scale(0.95); }
+	50% { opacity: 1; transform: scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pisky-weather-icon .pisky-icon-rays,
+	.pisky-weather-icon .pisky-icon-cloud,
+	.pisky-weather-icon .pisky-icon-drop,
+	.pisky-weather-icon .pisky-icon-flake,
+	.pisky-weather-icon .pisky-icon-bolt,
+	.pisky-weather-icon .pisky-icon-fog line,
+	.pisky-weather-icon .pisky-icon-moon .pisky-icon-glow {
+		animation: none;
+	}
+
+	.pisky-weather-icon .pisky-icon-drop,
+	.pisky-weather-icon .pisky-icon-flake {
+		opacity: 1;
+	}
+}
+
+/* Placements */
+.pisky-condition-icon {
+	width: 62px;
+	height: 70px;
+	flex: none;
+}
+
+.pisky-forecast-icon {
+	width: 38px;
+	height: 43px;
+	margin: 2px auto 0;
+}
+
+/* Archive weather history */
+.pisky-history-metrics {
+	display: grid;
+	margin: 0;
+	gap: 1px;
+	grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.06);
+	overflow: hidden;
+}
+
+.pisky-history-metrics > div {
+	padding: 13px 15px;
+	background: var(--pisky-glass-strong);
+}
+
+.pisky-history-metrics dt {
+	color: var(--pisky-subtle);
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.pisky-history-metrics dd {
+	margin: 5px 0 0;
+	font-size: 20.5px;
+	font-weight: 550;
+	font-variant-numeric: tabular-nums;
+}
+
+.pisky-history-table td:first-child a {
+	color: var(--pisky-cyan);
+	text-decoration: none;
+}
+
+.pisky-history-table td:first-child a:hover {
+	text-decoration: underline;
+}
+
+.pisky-archive-empty {
+	margin: 4px 0 0;
+	color: var(--pisky-muted);
+	font-size: 16.5px;
+}
+
+/* ------------------------------------------------------------------
+ * Public visibility switches (administration only)
+ * ------------------------------------------------------------------ */
+
+.pisky-visibility-bar {
+	display: flex;
+	margin-bottom: 16px;
+	padding: 15px 18px;
+	gap: 16px;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	border-radius: 16px;
+}
+
+.pisky-visibility-bar strong {
+	display: block;
+	margin-top: 3px;
+	font-size: 18.5px;
+	font-weight: 560;
+}
+
+.pisky-visibility-bar small {
+	display: block;
+	margin-top: 3px;
+	color: var(--pisky-muted);
+	font-size: 15px;
+}
+
+/* The card is the positioning context for its switch. */
+.pisky-metric,
+.pisky-observation-grid article,
+.pisky-toggleable-list > div {
+	position: relative;
+}
+
+.pisky-metric-toggle {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	z-index: 2;
+	margin: 0;
+	cursor: pointer;
+	line-height: 0;
+}
+
+.pisky-toggleable-list .pisky-metric-toggle {
+	top: 50%;
+	right: 0;
+	transform: translateY(-50%);
+}
+
+.pisky-toggleable-list dd {
+	padding-right: 46px;
+}
+
+.pisky-metric-toggle input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+}
+
+.pisky-metric-toggle span {
+	position: relative;
+	display: block;
+	width: 32px;
+	height: 22px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.07);
+	transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.pisky-metric-toggle span::after {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: #99a1b8;
+	transition: transform 0.16s ease, background 0.16s ease;
+	content: "";
+}
+
+.pisky-metric-toggle input:checked + span {
+	border-color: rgba(94, 230, 170, 0.55);
+	background: rgba(94, 230, 170, 0.28);
+}
+
+.pisky-metric-toggle input:checked + span::after {
+	background: var(--pisky-green);
+	transform: translateX(14px);
+}
+
+.pisky-metric-toggle input:focus-visible + span {
+	outline: 2px solid var(--pisky-cyan);
+	outline-offset: 2px;
+}
+
+/* A card switched off stays readable but is visibly not published. */
+[data-pisky-hidden] {
+	opacity: 0.55;
+}
+
+[data-pisky-hidden] strong,
+[data-pisky-hidden] dd {
+	text-decoration: line-through;
+	text-decoration-color: rgba(255, 255, 255, 0.3);
+}
+
+.pisky-inline-notice {
+	margin-bottom: 16px;
+	padding: 12px 16px;
+	border-radius: 14px;
+	font-size: 16.5px;
+}
+
+.pisky-inline-notice.is-success {
+	border-left: 3px solid var(--pisky-green);
+}
+
+.pisky-inline-notice.is-error {
+	border-left: 3px solid var(--pisky-danger);
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------
+ * Metric glyphs
+ *
+ * Line symbols sharing one stroke weight so a grid of cards reads
+ * evenly. Colour is inherited so a card can tint its own icon.
+ * ------------------------------------------------------------------ */
+
+.pisky-metric-icon {
+	display: block;
+	width: 100%;
+	height: 100%;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 3.4;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	overflow: visible;
+}
+
+.pisky-metric-glyph {
+	display: inline-flex;
+	width: 22px;
+	height: 22px;
+	flex: none;
+	color: var(--pisky-cyan);
+	opacity: 0.85;
+}
+
+.pisky-metric > .pisky-metric-glyph {
+	position: absolute;
+	top: 14px;
+	left: 16px;
+}
+
+/* Leave room for the glyph, and for the visibility switch opposite it. */
+.pisky-metric:has(> .pisky-metric-glyph) > span {
+	padding-left: 30px;
+}
+
+.pisky-observation-grid article {
+	position: relative;
+}
+
+.pisky-observation-grid .pisky-metric-glyph {
+	position: absolute;
+	top: 12px;
+	left: 13px;
+	width: 18px;
+	height: 22px;
+}
+
+.pisky-observation-grid article:has(.pisky-metric-glyph) > span {
+	padding-left: 26px;
+}
+
+.pisky-toggleable-list .pisky-metric-glyph {
+	display: inline-block;
+	width: 15px;
+	height: 15px;
+	margin-right: 7px;
+	vertical-align: -3px;
+}
+
+.pisky-condition-metrics .pisky-metric-glyph,
+.pisky-history-metrics .pisky-metric-glyph {
+	display: inline-block;
+	width: 14px;
+	height: 14px;
+	margin-right: 6px;
+	vertical-align: -2px;
+}
+
+/* The admin condition card lays its icon out beside the reading rather
+   than floating it, so give the container real box behaviour. */
+.pisky-condition-primary {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+}
+
+.pisky-condition-primary .pisky-condition-icon {
+	width: 58px;
+	height: 66px;
+	margin-bottom: 2px;
+	flex: none;
+}
+
+.pisky-temperature-row {
+	display: flex;
+	gap: 14px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.pisky-temperature-row .pisky-condition-icon {
+	flex: none;
+}
+
+/* ------------------------------------------------------------------
+ * Visibility switch refinements
+ *
+ * The switch sits in the card corner, so the label must reserve room for
+ * it. Long labels like "Evapotranspiration" and "Pressure at sea level"
+ * wrap onto a second line and would otherwise run underneath it.
+ * ------------------------------------------------------------------ */
+
+.pisky-observation-grid article > span,
+.pisky-metric > span {
+	padding-right: 42px;
+	/* "Evapotranspiration" is a single unbreakable word and would otherwise
+	   overflow its reserved space and run under the switch. */
+	overflow-wrap: anywhere;
+	hyphens: auto;
+}
+
+/* The glyph sits opposite, so a card carrying both reserves each side. */
+.pisky-observation-grid article:has(.pisky-metric-glyph) > span {
+	padding-left: 26px;
+}
+
+.pisky-metric:has(> .pisky-metric-glyph) > span {
+	padding-left: 30px;
+}
+
+/* A smaller, quieter switch: it is a setting, not a headline. */
+.pisky-metric-toggle {
+	top: 9px;
+	right: 9px;
+}
+
+.pisky-metric-toggle span {
+	width: 28px;
+	height: 16px;
+	border-color: rgba(255, 255, 255, 0.14);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.pisky-metric-toggle span::after {
+	top: 2px;
+	left: 2px;
+	width: 10px;
+	height: 10px;
+	background: #7d869e;
+}
+
+.pisky-metric-toggle input:checked + span {
+	border-color: rgba(94, 230, 170, 0.42);
+	background: rgba(94, 230, 170, 0.2);
+}
+
+.pisky-metric-toggle input:checked + span::after {
+	background: var(--pisky-green);
+	transform: translateX(12px);
+}
+
+.pisky-metric-toggle:hover span {
+	border-color: rgba(255, 255, 255, 0.26);
+}
+
+/* Keep the reading itself clear of the switch on short cards. */
+.pisky-observation-grid article > strong {
+	display: block;
+	overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------
+ * Astronomy icons
+ *
+ * The sun and moon climb or sink across the horizon line rather than
+ * sitting still, and the phase icon shows the real illuminated fraction.
+ * ------------------------------------------------------------------ */
+
+.pisky-astro-icon {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.pisky-astro-icon .pisky-icon-horizon line {
+	stroke: rgba(190, 202, 232, 0.5);
+	stroke-width: 2.6;
+	stroke-linecap: round;
+}
+
+.pisky-astro-icon .pisky-icon-disc {
+	fill: var(--pisky-orange);
+}
+
+.pisky-astro-icon.is-moonrise .pisky-icon-disc,
+.pisky-astro-icon.is-moonset .pisky-icon-disc,
+.pisky-astro-icon.is-moon_phase .pisky-icon-disc {
+	fill: #dfe6ff;
+}
+
+.pisky-astro-icon .pisky-icon-rays line {
+	stroke: var(--pisky-orange);
+	stroke-width: 2.8;
+	stroke-linecap: round;
+}
+
+.pisky-astro-icon .pisky-icon-arrow path {
+	fill: none;
+	stroke: var(--pisky-cyan);
+	stroke-width: 2.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.pisky-astro-icon .pisky-icon-glow {
+	fill: rgba(190, 205, 255, 0.14);
+}
+
+.pisky-astro-icon .pisky-icon-outline {
+	fill: none;
+	stroke: rgba(210, 220, 255, 0.35);
+	stroke-width: 1.6;
+}
+
+/* Motion: the body rises or sinks, the arrow pulses with it. */
+.pisky-astro-icon .pisky-icon-body {
+	transform-origin: 32px 30px;
+}
+
+.pisky-astro-icon.is-sunrise .pisky-icon-body,
+.pisky-astro-icon.is-moonrise .pisky-icon-body {
+	animation: pisky-astro-rise 4.5s ease-in-out infinite;
+}
+
+.pisky-astro-icon.is-sunset .pisky-icon-body,
+.pisky-astro-icon.is-moonset .pisky-icon-body {
+	animation: pisky-astro-set 4.5s ease-in-out infinite;
+}
+
+.pisky-astro-icon .pisky-icon-arrow {
+	animation: pisky-astro-nudge 4.5s ease-in-out infinite;
+}
+
+.pisky-astro-icon .pisky-icon-rays {
+	transform-origin: 32px 30px;
+	animation: pisky-icon-spin 30s linear infinite;
+}
+
+.pisky-astro-icon.is-moon_phase .pisky-icon-glow {
+	animation: pisky-icon-breathe 6s ease-in-out infinite;
+	transform-origin: 32px 32px;
+}
+
+@keyframes pisky-astro-rise {
+	0%, 100% { transform: translateY(6px); opacity: 0.75; }
+	50% { transform: translateY(-2px); opacity: 1; }
+}
+
+@keyframes pisky-astro-set {
+	0%, 100% { transform: translateY(-2px); opacity: 1; }
+	50% { transform: translateY(6px); opacity: 0.75; }
+}
+
+@keyframes pisky-astro-nudge {
+	0%, 100% { opacity: 0.5; }
+	50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pisky-astro-icon .pisky-icon-body,
+	.pisky-astro-icon .pisky-icon-arrow,
+	.pisky-astro-icon .pisky-icon-rays,
+	.pisky-astro-icon .pisky-icon-glow,
+	.pisky-astro-icon .pisky-icon-travel {
+		animation: none;
+	}
+}
+
+/*
+ * The glyph is a <span>, and width and height do not apply to an inline box,
+ * so without an explicit display the SVG inside sized itself against the card
+ * and pushed the labels apart. inline-flex gives it a real box everywhere it
+ * is used, whether that is beside a label or on its own.
+ */
+.pisky-astro-glyph {
+	display: inline-flex;
+	width: 26px;
+	height: 26px;
+	flex: none;
+	margin-right: 7px;
+	vertical-align: -7px;
+}
+
+.pisky-astronomy-grid .pisky-astro-glyph,
+.pisky-public-astronomy .pisky-astro-glyph,
+.pisky-condition-metrics .pisky-astro-glyph,
+.pisky-history-metrics .pisky-astro-glyph {
+	width: 20px;
+	height: 20px;
+	vertical-align: -5px;
+}
+
+/* Daylight arc */
+.pisky-astro-icon .pisky-icon-arc {
+	fill: none;
+	stroke: rgba(255, 189, 122, 0.4);
+	stroke-width: 2.4;
+	stroke-linecap: round;
+	stroke-dasharray: 3 5;
+}
+
+.pisky-astro-icon .pisky-icon-travel {
+	animation: pisky-astro-travel 7s ease-in-out infinite;
+}
+
+@keyframes pisky-astro-travel {
+	0%, 100% { transform: translate(-17px, 17px); }
+	50% { transform: translate(17px, 17px); }
+	25%, 75% { transform: translate(0, 0); }
+}
+
+/* ------------------------------------------------------------------
+ * Living metric glyphs
+ *
+ * Each metric belongs to a motion family so a grid of cards reads as one
+ * system: everything that falls falls together, everything that radiates
+ * pulses together. Motion is slow and low-amplitude — these sit behind
+ * the reading and must not compete with it.
+ * ------------------------------------------------------------------ */
+
+/* The last path in each glyph is the moving part; the rest is the frame. */
+.pisky-metric-icon.is-warm path:first-of-type {
+	transform-origin: 32px 44px;
+	animation: pisky-glyph-warm 4.2s ease-in-out infinite;
+}
+
+.pisky-metric-icon.is-drip path:first-of-type {
+	transform-origin: 32px 34px;
+	animation: pisky-glyph-drip 3.6s ease-in-out infinite;
+}
+
+.pisky-metric-icon.is-fall path:not(:first-of-type) {
+	animation: pisky-glyph-fall 2.4s linear infinite;
+}
+
+.pisky-metric-icon.is-fall path:nth-of-type(3) { animation-delay: 0.3s; }
+.pisky-metric-icon.is-fall path:nth-of-type(4) { animation-delay: 0.6s; }
+.pisky-metric-icon.is-fall path:nth-of-type(5) { animation-delay: 0.9s; }
+
+.pisky-metric-icon.is-drift path {
+	animation: pisky-glyph-drift 6s ease-in-out infinite;
+}
+
+.pisky-metric-icon.is-drift path:nth-of-type(2) { animation-delay: 0.5s; }
+.pisky-metric-icon.is-drift path:nth-of-type(3) { animation-delay: 1s; }
+
+.pisky-metric-icon.is-spin {
+	transform-origin: 50% 50%;
+	animation: pisky-glyph-spin 12s linear infinite;
+}
+
+.pisky-metric-icon.is-radiate {
+	transform-origin: 50% 50%;
+	animation: pisky-glyph-radiate 3.4s ease-in-out infinite;
+}
+
+.pisky-metric-icon.is-sweep path:last-of-type {
+	transform-origin: 32px 38px;
+	animation: pisky-glyph-sweep 5s ease-in-out infinite;
+}
+
+.pisky-metric-icon.is-flicker path:first-of-type {
+	animation: pisky-glyph-flicker 3.8s steps(1, end) infinite;
+}
+
+.pisky-metric-icon.is-float path {
+	animation: pisky-glyph-float 5.5s ease-in-out infinite;
+}
+
+.pisky-metric-icon.is-float path:nth-of-type(2) { animation-delay: 0.8s; }
+.pisky-metric-icon.is-float path:nth-of-type(3) { animation-delay: 1.6s; }
+.pisky-metric-icon.is-float path:nth-of-type(4) { animation-delay: 2.4s; }
+
+@keyframes pisky-glyph-warm {
+	0%, 100% { transform: scaleY(0.94); }
+	50% { transform: scaleY(1.04); }
+}
+
+@keyframes pisky-glyph-drip {
+	0%, 100% { transform: translateY(-1px) scale(0.97); }
+	50% { transform: translateY(1.5px) scale(1.03); }
+}
+
+@keyframes pisky-glyph-fall {
+	0% { opacity: 0; transform: translateY(-4px); }
+	25% { opacity: 1; }
+	75% { opacity: 1; }
+	100% { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes pisky-glyph-drift {
+	0%, 100% { transform: translateX(-1.6px); }
+	50% { transform: translateX(1.6px); }
+}
+
+@keyframes pisky-glyph-spin {
+	to { transform: rotate(360deg); }
+}
+
+@keyframes pisky-glyph-radiate {
+	0%, 100% { transform: scale(0.94); opacity: 0.8; }
+	50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes pisky-glyph-sweep {
+	0%, 100% { transform: rotate(-16deg); }
+	50% { transform: rotate(16deg); }
+}
+
+@keyframes pisky-glyph-flicker {
+	0%, 82%, 100% { opacity: 1; }
+	86%, 92% { opacity: 0.3; }
+}
+
+@keyframes pisky-glyph-float {
+	0%, 100% { transform: translate(0, 0); }
+	33% { transform: translate(1.4px, -1.6px); }
+	66% { transform: translate(-1.2px, 1.2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pisky-metric-icon,
+	.pisky-metric-icon path {
+		animation: none !important;
+		opacity: 1 !important;
+	}
+}
+
+/* Dismiss control on the selected aircraft card */
+.pisky-scope-close {
+	position: absolute;
+	top: 10px;
+	right: 12px;
+	z-index: 3;
+	display: grid;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--pisky-border);
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--pisky-muted);
+	font-size: 19px;
+	line-height: 1;
+	place-items: center;
+	cursor: pointer;
+	transition: 150ms ease;
+}
+
+.pisky-scope-close:hover,
+.pisky-scope-close:focus-visible {
+	border-color: var(--pisky-highlight);
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--pisky-ink);
+}
+
+.pisky-scope-detail {
+	position: relative;
+}
+
+/* Keep the heading clear of the dismiss control. */
+.pisky-scope-detail.is-open h3,
+.pisky-scope-detail.is-open > span.pisky-eyebrow {
+	padding-right: 38px;
+}
+
+/* Storage repair prompt */
+.pisky-storage-repair {
+	border-left: 3px solid var(--pisky-danger);
+}
+
+.pisky-storage-repair p {
+	margin: 0 0 14px;
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+	overflow-wrap: anywhere;
+}
+
+.pisky-storage-repair form {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.pisky-storage-repair form span {
+	color: var(--pisky-subtle);
+	font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------
+ * Weather history charts
+ * ------------------------------------------------------------------ */
+
+.pisky-history-charts .pisky-panel-heading small {
+	color: var(--pisky-subtle);
+	font-size: 12px;
+	text-align: right;
+	max-width: 40ch;
+}
+
+.pisky-chart-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+}
+
+@media (max-width: 900px) {
+	.pisky-chart-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.pisky-chart-grid article {
+	padding: 14px 15px 10px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.022);
+}
+
+.pisky-chart-grid article[hidden] {
+	display: none;
+}
+
+.pisky-chart-grid header {
+	display: flex;
+	min-height: 30px;
+	gap: 12px;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 6px;
+	flex-wrap: wrap;
+}
+
+.pisky-chart-grid h3 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 560;
+}
+
+.pisky-chart-grid canvas {
+	display: block;
+	width: 100%;
+	height: 190px;
+}
+
+/* Hover readout: hidden until the pointer is over the chart, but the space is
+   reserved so the canvas does not jump when it appears. */
+.pisky-chart-readout {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+	opacity: 0;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 11.5px;
+	transition: opacity 0.14s ease;
+}
+
+.pisky-chart-readout.is-active {
+	opacity: 1;
+}
+
+.pisky-chart-readout strong {
+	color: var(--pisky-ink);
+	font-weight: 600;
+}
+
+.pisky-chart-readout span {
+	display: inline-flex;
+	gap: 5px;
+	align-items: center;
+	color: var(--pisky-muted);
+}
+
+.pisky-chart-readout i {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+/* Four-column archive date grid */
+.pisky-archive-day-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 14px;
+}
+
+@media (max-width: 1100px) {
+	.pisky-archive-day-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 820px) {
+	.pisky-archive-day-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 480px) {
+	.pisky-archive-day-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* Consistent separation between the archive's stacked sections. The public
+   shell has no gap of its own, so each block carries its own bottom margin. */
+.pisky-archive-search,
+.pisky-history-day,
+.pisky-history-charts,
+.pisky-storage-repair {
+	margin-bottom: 22px;
+}
+
+.pisky-public-page-card + .pisky-history-day,
+.pisky-history-day + .pisky-history-charts {
+	margin-top: 0;
+}
+
+.pisky-archive-empty {
+	margin-bottom: 0;
+}
+
+/* Station clock in the page heading */
+.pisky-station-clock {
+	display: flex;
+	margin-top: 8px;
+	gap: 10px;
+	align-items: baseline;
+	color: var(--pisky-muted);
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.pisky-station-clock strong {
+	color: var(--pisky-ink);
+	font-size: 20px;
+	font-weight: 550;
+	letter-spacing: 0.5px;
+}
+
+.pisky-station-clock span {
+	font-size: 13px;
+}
+
+.pisky-build-link {
+	color: var(--pisky-cyan);
+	text-decoration: none;
+	font-weight: 550;
+}
+
+.pisky-build-link:hover {
+	text-decoration: underline;
+}

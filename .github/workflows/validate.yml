@@ -1,0 +1,76 @@
+name: Validate PiSky
+
+on:
+  push:
+    branches:
+      - main
+      - "agent/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq php-cli python3-configobj shellcheck
+
+      - name: Validate shell
+        run: |
+          bash -n install-pisky.sh
+          bash -n scripts/piskyctl
+          shellcheck install-pisky.sh scripts/piskyctl
+
+      - name: Validate PHP
+        run: |
+          find html -type f -name '*.php' -print0 |
+            xargs -0 -n1 php -l
+          php tests/pisky-auth.test.php
+          php tests/pisky-flight-fields.test.php
+          php tests/pisky-installer.test.php
+          php tests/pisky-setup-render.test.php
+          php tests/pisky-site.test.php
+          php tests/pisky-weather-units.test.php
+          php tests/pisky-weather-supplement.test.php
+          php tests/pisky-weather-history.test.php
+          php tests/pisky-metric-visibility.test.php
+          php tests/pisky-history-store.test.php
+
+      - name: Validate JavaScript
+        run: |
+          node --check html/js/pisky-context.js
+          node --check html/js/pisky-weather-icons.js
+          node --check html/js/pisky-theme.js
+          node --check html/js/pisky-weather.js
+          node --check html/js/pisky-flights.js
+          node --check html/js/pisky-charts.js
+          node --check html/js/pisky-history.js
+          node tests/pisky-context.test.cjs
+          node tests/pisky-navigation.test.cjs
+          node tests/pisky-weather-icons.test.cjs
+
+      - name: Validate Python
+        run: |
+          python3 -m py_compile \
+            integrations/weewx/pisky_json.py \
+            integrations/weewx/configure_pisky.py \
+            integrations/weewx/configure_station.py
+          python3 tests/pisky-weewx-presets.test.py
+
+      - name: Validate JSON templates
+        run: |
+          jq empty config_repo/pisky-weather.json.repo
+          jq empty config_repo/pisky-flights.json.repo
+          jq empty config_repo/pisky-headless-settings.json.repo
+          jq empty config_repo/aircraft.example.json
+          jq empty config_repo/weewx-current.example.json
+
+      - name: Check whitespace
+        run: git diff --check

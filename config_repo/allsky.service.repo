@@ -1,0 +1,21 @@
+[Unit]
+Description=AllSky Camera Service
+After=multi-user.target
+Wants=allskyperiodic.service
+
+[Service]
+User=XX_ALLSKY_OWNER_XX
+ExecStart=XX_ALLSKY_HOME_XX/allsky.sh
+SyslogIdentifier=allsky
+Restart=on-success
+RestartSec=2
+; These exit code are fatal.
+RestartPreventExitStatus=XX_NO_RESTART_CODES_XX
+
+; XXX RestartKillSignal is not recognized by the systemd that comes with Buster (not sure about Bullseye),
+; so use ExecReload instead.
+; RestartKillSignal=SIGUSR1
+ExecReload=XX_ALLSKY_UTILITIES_XX/reload.sh $MAINPID
+
+[Install]
+WantedBy=multi-user.target

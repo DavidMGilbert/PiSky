@@ -1,0 +1,20 @@
+{
+	"now": 1785231720.0,
+	"messages": 128904,
+	"aircraft": [
+		{
+			"hex": "7c6b2d",
+			"flight": "QFA412",
+			"alt_baro": 18475,
+			"gs": 342.1,
+			"track": 221.4,
+			"lat": -33.7214,
+			"lon": 151.0162,
+			"squawk": "4251",
+			"seen_pos": 0.4,
+			"seen": 0.1,
+			"messages": 842,
+			"rssi": -12.8
+		}
+	]
+}
