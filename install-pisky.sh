@@ -121,15 +121,25 @@ apt_get()
 report_package_lock()
 {
 	[[ ${DRY_RUN} != "true" ]] || return 0
-	command -v fuser >/dev/null 2>&1 || return 0
-	local holder
-	holder="$(sudo fuser /var/lib/dpkg/lock-frontend 2>/dev/null | tr -d ' ')"
+
+	# Deliberately not fuser: it lives in psmisc, which Raspberry Pi OS does
+	# not always install, and the first version of this returned silently on
+	# exactly the machines that needed the explanation most. pgrep is part of
+	# procps and is always present.
+	local holder=""
+	if command -v pgrep >/dev/null 2>&1; then
+		holder="$(pgrep -a -f 'apt-get|apt\.systemd\.daily|unattended-upgrade|dpkg' 2>/dev/null \
+			| grep -v "$$" | head -n 1 || true)"
+	fi
 	[[ -n ${holder} ]] || return 0
-	local name
-	name="$(ps -o comm= -p "${holder}" 2>/dev/null || true)"
-	log "Waiting for another package operation to finish (${name:-pid ${holder}})."
-	printf 'Raspberry Pi OS installs updates in the background after boot.\n'
-	printf 'PiSky will continue automatically once that finishes.\n\n'
+
+	log "Waiting for another package operation to finish."
+	printf 'Raspberry Pi OS installs updates in the background after boot, and\n'
+	printf 'holds the package lock while it does. PiSky waits rather than\n'
+	printf 'failing, and continues automatically once that finishes.\n\n'
+	printf '  Currently running: %s\n\n' "${holder}"
+	printf 'This usually takes a minute or two. To watch it:\n'
+	printf '  sudo journalctl -u unattended-upgrades -f\n\n'
 }
 
 parse_options()
