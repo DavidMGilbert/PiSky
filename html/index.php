@@ -216,6 +216,7 @@ if ($useRemoteWebsite) {
 	<script src="/js/pisky-weather-icons.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-weather-icons.js"); ?>"></script>
 	<script src="/js/pisky-weather.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-weather.js"); ?>"></script>
 	<script src="/js/pisky-flights.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-flights.js"); ?>"></script>
+	<script src="/js/pisky-setup-tabs.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-setup-tabs.js"); ?>"></script>
 	<script> var allskyPage='<?php echo $page ?>';  </script>
 
 	<!-- Custom Theme JavaScript -->

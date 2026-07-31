@@ -52,6 +52,7 @@ jobs:
           node --check html/js/pisky-flights.js
           node --check html/js/pisky-charts.js
           node --check html/js/pisky-history.js
+          node --check html/js/pisky-setup-tabs.js
           node tests/pisky-context.test.cjs
           node tests/pisky-navigation.test.cjs
           node tests/pisky-weather-icons.test.cjs

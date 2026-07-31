@@ -541,12 +541,35 @@ function DisplayPiSkySetup() {
 	</div>
 <?php } ?>
 
+<?php
+// The page is long and covers unrelated concerns, so it is presented as tabs.
+// Panels keep their place in the document and are only shown or hidden, which
+// matters because several of them live inside one form: a hidden field still
+// submits, so switching tabs never silently drops a setting.
+$setupTabs = array(
+	"station" => array("Station", "fa-location-dot"),
+	"weather" => array("Weather station", "fa-cloud-sun"),
+	"aircraft" => array("Aircraft", "fa-plane"),
+	"history" => array("History", "fa-database"),
+	"system" => array("System", "fa-server")
+);
+?>
+<nav class="pisky-setup-tabs" data-pisky-setup-tabs aria-label="Setup sections">
+	<?php foreach ($setupTabs as $tabKey => $tabMeta) { ?>
+	<button type="button" class="pisky-setup-tab" data-pisky-tab="<?php echo htmlspecialchars($tabKey); ?>"
+		aria-selected="false">
+		<i class="fa <?php echo htmlspecialchars($tabMeta[1]); ?>" aria-hidden="true"></i>
+		<span><?php echo htmlspecialchars($tabMeta[0]); ?></span>
+	</button>
+	<?php } ?>
+</nav>
+
 <form method="post" class="pisky-setup-form">
 	<input type="hidden" name="page" value="pisky_setup">
 	<input type="hidden" name="pisky_action" value="save">
 	<?php if ($useLogin) CSRFToken(); ?>
 
-	<div class="pisky-setup-grid">
+	<div class="pisky-setup-grid" data-pisky-tab-panel="station">
 		<section class="pisky-glass pisky-panel">
 			<div class="pisky-panel-heading">
 				<div>
@@ -634,7 +657,7 @@ function DisplayPiSkySetup() {
 		</section>
 	</div>
 
-	<section class="pisky-glass pisky-panel pisky-setup-section">
+	<section class="pisky-glass pisky-panel pisky-setup-section" data-pisky-tab-panel="aircraft">
 		<div class="pisky-panel-heading">
 			<div>
 				<span class="pisky-eyebrow">Local 1090 MHz receiver</span>
@@ -687,7 +710,7 @@ function DisplayPiSkySetup() {
 		</div>
 	</section>
 
-	<section class="pisky-glass pisky-panel pisky-setup-section">
+	<section class="pisky-glass pisky-panel pisky-setup-section" data-pisky-tab-panel="aircraft">
 		<div class="pisky-panel-heading">
 			<div>
 				<span class="pisky-eyebrow">Hardware input</span>
@@ -761,7 +784,7 @@ function DisplayPiSkySetup() {
 		</div>
 	</section>
 
-	<section class="pisky-glass pisky-panel pisky-setup-section">
+	<section class="pisky-glass pisky-panel pisky-setup-section" data-pisky-tab-panel="aircraft">
 		<div class="pisky-panel-heading">
 			<div>
 				<span class="pisky-eyebrow">Decoder, network and map</span>
@@ -865,7 +888,7 @@ function DisplayPiSkySetup() {
 		</div>
 	</section>
 
-	<section class="pisky-glass pisky-panel pisky-setup-section">
+	<section class="pisky-glass pisky-panel pisky-setup-section" data-pisky-tab-panel="aircraft">
 		<div class="pisky-panel-heading">
 			<div>
 				<span class="pisky-eyebrow">Optional outbound destinations</span>
@@ -913,7 +936,7 @@ function DisplayPiSkySetup() {
 	</div>
 </form>
 
-<section class="pisky-glass pisky-panel pisky-setup-section pisky-weewx-wizard" id="weewx-station">
+<section class="pisky-glass pisky-panel pisky-setup-section pisky-weewx-wizard" data-pisky-tab-panel="weather" id="weewx-station">
 	<div class="pisky-panel-heading">
 		<div>
 			<span class="pisky-eyebrow">Guided local weather setup</span>
@@ -1093,7 +1116,7 @@ $historyValue = function ($key, $default) use ($history) {
 $historyDriverReady = class_exists("PDO")
 	&& in_array("mysql", PDO::getAvailableDrivers(), true);
 ?>
-<section class="pisky-setup-section">
+<section class="pisky-setup-section pisky-glass pisky-panel" data-pisky-tab-panel="history">
 	<div class="pisky-section-heading">
 		<div>
 			<span class="pisky-eyebrow">Detailed history</span>
@@ -1209,7 +1232,7 @@ $historyDriverReady = class_exists("PDO")
 	</form>
 </section>
 
-<section class="pisky-setup-section">
+<section class="pisky-setup-section" data-pisky-tab-panel="system">
 	<div class="pisky-panel-heading">
 		<div>
 			<span class="pisky-eyebrow">Component health</span>

@@ -101,6 +101,37 @@ sed_escape()
 	printf '%s' "${1}" | sed -e 's/[&|\\]/\\&/g'
 }
 
+#
+# apt-get, but willing to wait for the package lock.
+#
+# Raspberry Pi OS runs apt-daily and unattended-upgrades on a timer, so a
+# freshly booted Pi is very often already holding /var/lib/dpkg/lock-frontend
+# when someone starts installing. Failing on that is unhelpful: the lock is
+# released within a minute or two, and the correct behaviour is simply to
+# queue behind it. DPkg::Lock::Timeout makes apt do exactly that.
+#
+apt_get()
+{
+	run_root env DEBIAN_FRONTEND=noninteractive \
+		apt-get -o DPkg::Lock::Timeout=600 "$@"
+}
+
+# Report who holds the lock before the first long wait, so a stalled install
+# looks like waiting rather than hanging.
+report_package_lock()
+{
+	[[ ${DRY_RUN} != "true" ]] || return 0
+	command -v fuser >/dev/null 2>&1 || return 0
+	local holder
+	holder="$(sudo fuser /var/lib/dpkg/lock-frontend 2>/dev/null | tr -d ' ')"
+	[[ -n ${holder} ]] || return 0
+	local name
+	name="$(ps -o comm= -p "${holder}" 2>/dev/null || true)"
+	log "Waiting for another package operation to finish (${name:-pid ${holder}})."
+	printf 'Raspberry Pi OS installs updates in the background after boot.\n'
+	printf 'PiSky will continue automatically once that finishes.\n\n'
+}
+
 parse_options()
 {
 	while [[ $# -gt 0 ]]; do
@@ -457,11 +488,12 @@ install_headless_web_foundation()
 install_base()
 {
 	log "Installing PiSky core dependencies and configuration."
-	run_root apt-get update
+	report_package_lock
+	apt_get update
 	# php-mysql is only exercised when a host points PiSky at a remote history
 	# database, but installing it up front means enabling that later needs no
 	# shell access.
-	run_root apt-get install -y \
+	apt_get install -y \
 		jq ca-certificates curl python3 lighttpd php-fpm php-gd php-mysql \
 		avahi-daemon
 
@@ -608,7 +640,7 @@ install_weewx()
 	}
 
 	log "Installing WeeWX 5.x in an isolated Python environment."
-	run_root apt-get install -y python3-venv python3-pip
+	apt_get install -y python3-venv python3-pip
 	ensure_weewx_user
 	run_root install -d -m 0755 /opt/pisky
 	if [[ ! -x ${WEEWX_VENV}/bin/weewxd ]]; then
@@ -676,7 +708,7 @@ install_beast_splitter()
 	fi
 
 	log "Building pinned Mode-S Beast GPS support."
-	run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+	apt_get install -y \
 		git build-essential debhelper fakeroot \
 		libboost-system-dev libboost-program-options-dev libboost-regex-dev
 
@@ -725,7 +757,7 @@ install_adsb()
 	}
 
 	log "Installing Debian's local ADS-B decoder and RTL-SDR support."
-	run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+	apt_get install -y \
 		dump1090-mutability rtl-sdr
 	install_beast_splitter
 	grant_beast_serial_access

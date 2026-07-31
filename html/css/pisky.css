@@ -5153,3 +5153,94 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
 .pisky-build-link:hover {
 	text-decoration: underline;
 }
+
+/* ------------------------------------------------------------------
+ * PiSky Setup tabs
+ *
+ * Panels are hidden rather than removed, because several share one form
+ * and a hidden field still submits. Without JavaScript every panel stays
+ * visible, which is the pre-tab behaviour and remains usable.
+ * ------------------------------------------------------------------ */
+
+.pisky-setup-tabs {
+	display: flex;
+	margin-bottom: 20px;
+	padding: 6px;
+	gap: 4px;
+	flex-wrap: wrap;
+	border: 1px solid var(--pisky-border);
+	border-radius: 16px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 45%),
+		var(--pisky-glass);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	backdrop-filter: blur(24px) saturate(140%);
+	-webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+.pisky-setup-tab {
+	display: inline-flex;
+	padding: 10px 16px;
+	gap: 9px;
+	align-items: center;
+	flex: 1 1 auto;
+	justify-content: center;
+	border: 1px solid transparent;
+	border-radius: 12px;
+	background: transparent;
+	color: var(--pisky-muted);
+	font-size: 13.5px;
+	font-weight: 560;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: 160ms ease;
+}
+
+.pisky-setup-tab .fa {
+	color: var(--pisky-purple);
+	font-size: 14px;
+	opacity: 0.85;
+}
+
+.pisky-setup-tab:hover {
+	border-color: rgba(255, 255, 255, 0.09);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--pisky-ink);
+}
+
+.pisky-setup-tab.is-active {
+	border-color: var(--pisky-highlight);
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035));
+	color: var(--pisky-ink);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.pisky-setup-tab.is-active .fa {
+	color: var(--pisky-cyan);
+	opacity: 1;
+}
+
+.pisky-setup-tab:focus-visible {
+	outline: 2px solid var(--pisky-cyan);
+	outline-offset: 2px;
+}
+
+.pisky-setup-tab[hidden] {
+	display: none;
+}
+
+/* The history panel is a plain section elsewhere; inside the tabs it needs
+   the same card treatment as its neighbours. */
+[data-pisky-tab-panel] {
+	margin-bottom: 18px;
+}
+
+[data-pisky-tab-panel][hidden] {
+	display: none;
+}
+
+.pisky-setup-section.pisky-glass {
+	padding: 22px 24px;
+	border-radius: 20px;
+}

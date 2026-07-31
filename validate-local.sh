@@ -80,7 +80,7 @@ step "JavaScript"
 for f in html/js/pisky-context.js html/js/pisky-theme.js \
 	html/js/pisky-weather.js html/js/pisky-flights.js \
 	html/js/pisky-weather-icons.js html/js/pisky-charts.js \
-	html/js/pisky-history.js; do
+	html/js/pisky-history.js html/js/pisky-setup-tabs.js; do
 	check node --check "$f"
 done
 check node tests/pisky-context.test.cjs
