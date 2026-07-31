@@ -770,9 +770,11 @@ grant_rtlsdr_access()
 		local rendered
 		rendered="$(mktemp)"
 		cat > "${rendered}" <<-'EOF'
-			# Keep the DVB-T driver away from RTL2832U dongles so PiSky's ADS-B
-			# decoder can claim them. Written by install-pisky.sh.
+			# Keep the DVB-T and SDR-bridge drivers away from RTL2832U dongles
+			# so PiSky's ADS-B decoder can claim them. Written by
+			# install-pisky.sh.
 			blacklist dvb_usb_rtl28xxu
+			blacklist rtl2832_sdr
 			blacklist rtl2832
 			blacklist rtl2830
 		EOF
@@ -780,11 +782,20 @@ grant_rtlsdr_access()
 		rm -f -- "${rendered}"
 	fi
 
-	# Remove it now as well, so a dongle already claimed becomes usable without
-	# waiting for a reboot.
-	if [[ ${DRY_RUN} != "true" ]] && lsmod | grep -q '^dvb_usb_rtl28xxu'; then
+	# Remove them now as well, so a dongle already claimed becomes usable
+	# without waiting for a reboot. Order matters: the SDR bridge sits on top
+	# of the demodulator, which sits on top of the USB driver, and a module
+	# still in use cannot be removed.
+	if [[ ${DRY_RUN} != "true" ]] && lsmod | grep -qE '^(dvb_usb_rtl28xxu|rtl2832)'; then
 		log "Releasing the RTL-SDR from the DVB-T driver."
-		run_root modprobe -r dvb_usb_rtl28xxu 2>/dev/null || true
+		local module
+		for module in rtl2832_sdr dvb_usb_rtl28xxu rtl2832 rtl2830; do
+			lsmod | grep -q "^${module} " || continue
+			run_root modprobe -r "${module}" 2>/dev/null || true
+		done
+		if lsmod | grep -qE '^(dvb_usb_rtl28xxu|rtl2832)'; then
+			log "The DVB-T driver is still in use; reboot to release the receiver."
+		fi
 	fi
 
 	if getent passwd dump1090 >/dev/null 2>&1; then
