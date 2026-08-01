@@ -192,7 +192,13 @@ if ($useRemoteWebsite) {
 
 	<!-- Custom CSS -->
 	<link href="/documentation/css/custom.css" rel="stylesheet">
-	<link href="/css/pisky.css?c=<?php echo ALLSKY_VERSION; ?>" rel="stylesheet">
+	<?php
+	// Busted by the file's own timestamp, not the release version. Keyed on the
+	// version, a stylesheet change shipped between releases reached nobody who
+	// had already loaded the page: the browser kept serving the cached copy and
+	// the interface silently rendered against months-old rules.
+	?>
+	<link href="/css/pisky.css?c=<?php echo filemtime(__DIR__ . "/css/pisky.css"); ?>" rel="stylesheet">
 
 	<link rel="icon" type="image/svg+xml" href="/pisky-favicon.svg">
 	<link rel="alternate icon" type="image/png" href="/allsky/allsky-favicon.png">

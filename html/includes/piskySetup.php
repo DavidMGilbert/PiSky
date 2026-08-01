@@ -656,7 +656,7 @@ $setupTabs = array(
 	<?php } ?>
 </nav>
 
-<form method="post" class="pisky-setup-form">
+<form method="post" class="pisky-setup-form" id="pisky-setup-form">
 	<input type="hidden" name="page" value="pisky_setup">
 	<input type="hidden" name="pisky_action" value="save">
 	<?php if ($useLogin) CSRFToken(); ?>
@@ -699,8 +699,15 @@ $setupTabs = array(
 				</button>
 			</div>
 		</section>
+	</div>
 
-		<section class="pisky-glass pisky-panel">
+	<?php
+	// The provider choice and the WeeWX endpoints belong with the rest of the
+	// weather settings, not under Station. Its own panel rather than a nested
+	// one: a panel inside a hidden panel can never be shown.
+	?>
+	<div class="pisky-setup-grid" data-pisky-tab-panel="weather">
+		<section class="pisky-glass pisky-panel pisky-field-wide">
 			<div class="pisky-panel-heading">
 				<div>
 					<span class="pisky-eyebrow">Conditions provider</span>
@@ -1031,15 +1038,6 @@ $setupTabs = array(
 		</div>
 	</section>
 
-	<div class="pisky-setup-savebar">
-		<div>
-			<strong>Save the observatory configuration</strong>
-			<span>Validated backups are created automatically.</span>
-		</div>
-		<button class="btn btn-primary" type="submit" <?php echo $useLogin ? "" : "disabled"; ?>>
-			<i class="fa fa-save" aria-hidden="true"></i> Save PiSky setup
-		</button>
-	</div>
 </form>
 
 <section class="pisky-glass pisky-panel pisky-setup-section pisky-weewx-wizard" data-pisky-tab-panel="weather" id="weewx-station">
@@ -1428,6 +1426,32 @@ if ($capabilities["flights"]) {
 		"coverage_map_longitude"
 	);
 }
+?>
+
+<?php
+/*
+ * The save bar for the main configuration form.
+ *
+ * Last in the document and outside the form it submits, reached through the
+ * form attribute instead. Inside the form its sticky range ended where the
+ * form did, so on a tab whose fields are short it came to rest above the
+ * panels that follow and read as a Save button for content it does not save.
+ *
+ * It appears only on the tabs holding that form's fields; the rest carry their
+ * own forms and their own buttons.
+ */
+?>
+<div class="pisky-setup-savebar" data-pisky-tab-panel="station weather aircraft">
+	<div>
+		<strong>Save the observatory configuration</strong>
+		<span>Validated backups are created automatically.</span>
+	</div>
+	<button class="btn btn-primary" type="submit" form="pisky-setup-form"
+		<?php echo $useLogin ? "" : "disabled"; ?>>
+		<i class="fa fa-save" aria-hidden="true"></i> Save PiSky setup
+	</button>
+</div>
+<?php
 ?>
 
 <script>

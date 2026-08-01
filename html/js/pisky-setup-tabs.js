@@ -18,8 +18,13 @@
 
 	const STORAGE_KEY = "pisky-setup-tab";
 
+	/*
+	 * A panel may list more than one tab, separated by spaces, for something
+	 * that belongs to several of them: the save bar submits fields spread
+	 * across three. ~= is the attribute selector for one word in such a list.
+	 */
 	function panelsFor(tab) {
-		return document.querySelectorAll('[data-pisky-tab-panel="' + tab + '"]');
+		return document.querySelectorAll('[data-pisky-tab-panel~="' + tab + '"]');
 	}
 
 	function show(tab, buttons, remember) {
@@ -30,11 +35,19 @@
 			if (active) matched = true;
 			button.classList.toggle("is-active", active);
 			button.setAttribute("aria-selected", active ? "true" : "false");
-			panelsFor(key).forEach(function (panel) {
-				panel.hidden = !active;
-			});
 		});
 		if (!matched) return false;
+
+		/*
+		 * Visibility is decided per panel rather than per tab. Deciding it per
+		 * tab meant a panel listed under two of them was shown by one pass and
+		 * hidden again by the next, so whether it appeared came down to the
+		 * order of the buttons.
+		 */
+		document.querySelectorAll("[data-pisky-tab-panel]").forEach(function (panel) {
+			const keys = (panel.getAttribute("data-pisky-tab-panel") || "").split(/\s+/);
+			panel.hidden = keys.indexOf(tab) === -1;
+		});
 		if (remember) {
 			try { window.sessionStorage.setItem(STORAGE_KEY, tab); } catch (error) { /* private mode */ }
 		}
@@ -81,7 +94,8 @@
 		let stored = "";
 		try { stored = window.sessionStorage.getItem(STORAGE_KEY) || ""; } catch (error) { /* private mode */ }
 
-		if (alert) initial = alert.getAttribute("data-pisky-tab-panel");
+		// A panel may list several tabs; bringing one forward means the first.
+		if (alert) initial = (alert.getAttribute("data-pisky-tab-panel") || "").split(/\s+/)[0];
 		else if (fragment && panelsFor(fragment).length) initial = fragment;
 		else if (stored && panelsFor(stored).length) initial = stored;
 		show(initial, buttons, false);
