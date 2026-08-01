@@ -1351,76 +1351,55 @@ body.pisky-public {
 }
 
 /*
- * Station date and time, given a card of its own on the landing page.
+ * Station date and time.
  *
- * Readings from an observatory only mean something against the moment and the
- * place they were taken, so this sits with the headline figures rather than
- * inside the heading. The time is set in the same monospaced face the other
- * readings use, so the digits do not shuffle as the minute changes.
+ * Sits at the head of the conditions column, because a reading and the moment
+ * it was taken belong together. The time is monospaced and its digits are
+ * tabular, so a seconds display does not shuffle the line every tick.
  */
 .pisky-public-time-card {
 	display: flex;
-	margin-bottom: 18px;
-	padding: 16px 22px;
-	align-items: center;
-	justify-content: space-between;
-	gap: 20px;
-	flex-wrap: wrap;
+	padding: 21px;
+	flex-direction: column;
+	gap: 11px;
 }
 
-.pisky-time-card-copy strong {
+.pisky-public-time-card strong {
 	display: block;
-	margin-top: 4px;
 	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-	font-size: clamp(34px, 5.2vw, 52px);
+	font-size: clamp(30px, 3.1vw, 40px);
 	font-weight: 500;
 	line-height: 1;
-	letter-spacing: -0.02em;
+	letter-spacing: -0.01em;
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: "tnum" 1;
 }
 
-.pisky-time-card-date {
-	display: block;
-	margin-top: 7px;
-	color: var(--pisky-muted);
-	font-size: 15.5px;
-}
-
-.pisky-time-card-meta {
+.pisky-time-card-foot {
 	display: flex;
-	align-items: flex-end;
-	flex-direction: column;
-	gap: 6px;
-	color: var(--pisky-subtle);
-	font-size: 13px;
-	text-align: right;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	color: var(--pisky-muted);
+	font-size: 14px;
 }
 
-.pisky-time-card-meta b {
-	padding: 4px 12px;
+.pisky-time-card-foot b {
+	padding: 3px 11px;
 	border: 1px solid var(--pisky-border);
 	border-radius: 999px;
 	color: var(--pisky-ink);
-	font-size: 12.5px;
+	font-size: 11.5px;
 	font-weight: 650;
-	letter-spacing: 0.08em;
+	letter-spacing: 0.1em;
 	text-transform: uppercase;
+	white-space: nowrap;
 }
 
-@media (max-width: 650px) {
-	.pisky-public-time-card {
-		align-items: flex-start;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.pisky-time-card-meta {
-		align-items: flex-start;
-		text-align: left;
-	}
-}
 
 .pisky-public-live-card,
 .pisky-public-condition-card,
+.pisky-public-time-card,
 .pisky-public-context > article {
 	border-radius: 24px;
 }

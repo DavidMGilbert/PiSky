@@ -169,31 +169,6 @@ if (!empty($coverageMap["enabled"]) && !empty($coverageMap["public"])
 		</header>
 
 		<?php if ($publicView === "overview") { ?>
-		<?php
-		/*
-		 * The station clock as a card of its own.
-		 *
-		 * An observatory's readings only mean anything against the moment and
-		 * the place they were taken, so on the landing page that belongs beside
-		 * the other headline figures rather than tucked into the heading. It
-		 * carries the same data-pisky-clock hooks, so one client fills both.
-		 */
-		?>
-		<section class="pisky-glass pisky-public-time-card" data-pisky-clock aria-label="Station date and time">
-			<div class="pisky-time-card-copy">
-				<span class="pisky-eyebrow"><?php
-					echo $stationLocation !== ""
-						? htmlspecialchars($stationLocation)
-						: "Station time";
-				?></span>
-				<strong data-pisky-clock-time>--:--</strong>
-				<span class="pisky-time-card-date" data-pisky-clock-date>&nbsp;</span>
-			</div>
-			<div class="pisky-time-card-meta">
-				<span data-pisky-clock-zone>&nbsp;</span>
-				<b data-pisky-daypart-label>Today</b>
-			</div>
-		</section>
 
 		<div class="pisky-public-grid">
 			<?php if ($capabilities["camera"]) { ?>
@@ -217,8 +192,20 @@ if (!empty($coverageMap["enabled"]) && !empty($coverageMap["public"])
 			</section>
 			<?php } ?>
 
-			<?php if ($capabilities["weather"]) { ?>
 			<aside class="pisky-public-conditions" id="conditions">
+				<section class="pisky-glass pisky-public-time-card" data-pisky-clock data-pisky-clock-seconds aria-label="Station date and time">
+					<div class="pisky-condition-heading">
+						<span class="pisky-eyebrow">Station time</span>
+						<span class="pisky-provider-pill" data-pisky-clock-zone>&nbsp;</span>
+					</div>
+					<strong data-pisky-clock-time>--:--:--</strong>
+					<div class="pisky-time-card-foot">
+						<span data-pisky-clock-date>&nbsp;</span>
+						<b data-pisky-daypart-label>Today</b>
+					</div>
+				</section>
+
+				<?php if ($capabilities["weather"]) { ?>
 				<section class="pisky-glass pisky-public-condition-card">
 					<div class="pisky-condition-heading"><span class="pisky-eyebrow">Conditions now</span><span class="pisky-provider-pill" data-pisky-provider>Weather</span></div>
 					<div class="pisky-temperature-row">
@@ -254,8 +241,8 @@ if (!empty($coverageMap["enabled"]) && !empty($coverageMap["public"])
 					</dl>
 					<footer><a href="/?view=weather">Full weather and forecast <span aria-hidden="true">→</span></a></footer>
 				</section>
+				<?php } ?>
 			</aside>
-			<?php } ?>
 		</div>
 
 		<?php if ($capabilities["flights"]) { ?>

@@ -133,6 +133,12 @@
 		const time = at.toLocaleTimeString([], {
 			hour: "2-digit", minute: "2-digit", hour12: false
 		});
+		// Seconds are opt-in per clock. The card is a display worth watching
+		// run; the one in the page heading would only be noise ticking beside
+		// a title.
+		const withSeconds = at.toLocaleTimeString([], {
+			hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+		});
 		const date = at.toLocaleDateString([], {
 			weekday: "short", day: "numeric", month: "short", year: "numeric"
 		});
@@ -140,12 +146,15 @@
 			const timeNode = holder.querySelector("[data-pisky-clock-time]");
 			const dateNode = holder.querySelector("[data-pisky-clock-date]");
 			const zoneNode = holder.querySelector("[data-pisky-clock-zone]");
-			if (timeNode) timeNode.textContent = time;
+			if (timeNode) {
+				timeNode.textContent = holder.hasAttribute("data-pisky-clock-seconds")
+					? withSeconds : time;
+			}
 			if (dateNode) dateNode.textContent = date;
-			// The card names the zone in the open; the heading clock keeps it
-			// in a tooltip, where there is no room to print it.
 			if (zoneNode) zoneNode.textContent = zone;
-			if (zone) holder.title = "Station local time · " + zone;
+			// A clock printing its zone does not also need to whisper it on
+			// hover, and the tooltip covered the reading it described.
+			if (zone && !zoneNode) holder.title = "Station local time · " + zone;
 		});
 	}
 
@@ -160,5 +169,11 @@
 	} else {
 		tick();
 	}
-	window.setInterval(tick, 30000);
+
+	/*
+	 * Once a second, so a clock showing seconds actually runs. The work is one
+	 * Date and two toLocaleTimeString calls against a couple of nodes, which is
+	 * far below what a second of budget allows.
+	 */
+	window.setInterval(tick, 1000);
 }());
