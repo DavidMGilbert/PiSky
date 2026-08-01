@@ -139,12 +139,26 @@
 		holders.forEach(function (holder) {
 			const timeNode = holder.querySelector("[data-pisky-clock-time]");
 			const dateNode = holder.querySelector("[data-pisky-clock-date]");
+			const zoneNode = holder.querySelector("[data-pisky-clock-zone]");
 			if (timeNode) timeNode.textContent = time;
 			if (dateNode) dateNode.textContent = date;
+			// The card names the zone in the open; the heading clock keeps it
+			// in a tooltip, where there is no room to print it.
+			if (zoneNode) zoneNode.textContent = zone;
 			if (zone) holder.title = "Station local time · " + zone;
 		});
 	}
 
-	tick();
+	/*
+	 * This file is loaded from the document head, so at parse time there is no
+	 * body to read the offset from and no clock to fill. Ticking immediately
+	 * therefore did nothing and the first real update waited for the interval,
+	 * leaving every visitor looking at --:-- for the first half minute.
+	 */
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", tick);
+	} else {
+		tick();
+	}
 	window.setInterval(tick, 30000);
 }());

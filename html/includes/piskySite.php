@@ -22,6 +22,24 @@ function pisky_site_defaults() {
 		// cannot be derived reliably from the request when a reverse proxy sits
 		// in front, because the Pi only ever sees the proxy's own request.
 		"public_url" => "",
+		/*
+		 * Listing on the shared map at pisky.space.
+		 *
+		 * Off unless the host turns it on, and turning it on publishes where
+		 * this station is to a public page, so the position is rounded by
+		 * default. The station only ever announces its address; everything
+		 * shown on that map is read back from this station's own API, so
+		 * switching this off removes the listing at the next check rather than
+		 * leaving a pin behind.
+		 */
+		"directory" => array(
+			"enabled" => false,
+			"precision" => "approximate",
+			"endpoint" => "https://pisky.space/api/stations/beacon",
+			"station_id" => "",
+			"last_beacon" => "",
+			"last_result" => ""
+		),
 		"api" => array(
 			"enabled" => true,
 			"origins" => array(),
@@ -224,5 +242,74 @@ function pisky_site_public_url() {
 
 function pisky_site_media_url($filename) {
 	return "/pisky-media.php?file=" . rawurlencode(basename($filename));
+}
+
+/* ---------------------------------------------------------------------------
+ * Shared map listing
+ * ------------------------------------------------------------------------ */
+
+function pisky_directory_config() {
+	$site = pisky_site_config();
+	$defaults = pisky_site_defaults();
+	$directory = isset($site["directory"]) && is_array($site["directory"])
+		? $site["directory"] : array();
+	return array_merge($defaults["directory"], $directory);
+}
+
+/*
+ * A name for this station on the shared map.
+ *
+ * Generated here rather than taken from /etc/machine-id, which identifies the
+ * hardware across everything else on it and has no business being published.
+ * This one means nothing anywhere but the map, and a host who wants to be
+ * forgotten can clear it.
+ */
+function pisky_directory_station_id($config = null) {
+	if ($config === null) $config = pisky_directory_config();
+	$id = isset($config["station_id"]) ? trim(strval($config["station_id"])) : "";
+	return preg_match('/^[a-f0-9]{32}$/', $id) ? $id : "";
+}
+
+function pisky_directory_new_station_id() {
+	return bin2hex(random_bytes(16));
+}
+
+/*
+ * How precisely the shared map may place this station.
+ *
+ * Rounding happens before the coordinate leaves the Pi, so the map is never
+ * sent a precise position and then trusted to blur it. Two decimal places is
+ * roughly a kilometre, which still shows who covers what without publishing
+ * anybody's address.
+ */
+function pisky_directory_round($value, $precision) {
+	if ($value === null) return null;
+	return $precision === "exact" ? round($value, 5) : round($value, 2);
+}
+
+/*
+ * Whether the shared map could reach this address at all.
+ *
+ * A station only ever known as pisky.local, or at a private address, cannot be
+ * verified from the internet, and announcing it would leave an unreachable pin
+ * that never resolves. The interface warns with this and the beacon refuses
+ * with it, so what the host is told matches what actually happens.
+ */
+function pisky_directory_reachable_url($url) {
+	$url = trim(strval($url));
+	if (!preg_match('#^https?://([A-Za-z0-9\-]+\.)+[A-Za-z]{2,}(:\d{1,5})?(/\S*)?$#', $url)) {
+		return false;
+	}
+	$host = strtolower(strval(parse_url($url, PHP_URL_HOST)));
+	if ($host === "" || substr($host, -6) === ".local" || substr($host, -8) === ".localdomain") {
+		return false;
+	}
+	return true;
+}
+
+function pisky_directory_precision($config = null) {
+	if ($config === null) $config = pisky_directory_config();
+	$precision = isset($config["precision"]) ? strval($config["precision"]) : "";
+	return $precision === "exact" ? "exact" : "approximate";
 }
 ?>

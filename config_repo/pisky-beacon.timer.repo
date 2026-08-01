@@ -1,0 +1,18 @@
+[Unit]
+Description=Announce this PiSky station to the shared map on a fixed schedule
+Documentation=https://wiki.pisky.space
+
+[Timer]
+# Hourly is far more often than a pin needs refreshing, but it decides how
+# quickly a station that has gone away stops being advertised as present.
+OnBootSec=3min
+OnUnitActiveSec=1h
+# Every station beaconing on its own boot schedule would still cluster after a
+# power cut across a region, so each start is spread over ten minutes.
+RandomizedDelaySec=600
+AccuracySec=1min
+Persistent=false
+Unit=pisky-beacon.service
+
+[Install]
+WantedBy=timers.target

@@ -8,7 +8,7 @@ set -Eeuo pipefail
 umask 027
 
 readonly CONFIG_FILE="/etc/pisky/pisky.conf"
-readonly CONTROL_VERSION="4"
+readonly CONTROL_VERSION="5"
 readonly DUMP1090_CONFIG="/etc/default/dump1090-mutability"
 readonly BEAST_SPLITTER_CONFIG="/etc/default/beast-splitter"
 readonly WEEWX_STATION_CONFIG="/etc/pisky/weewx-station.json"
@@ -16,6 +16,7 @@ readonly WEEWX_STATION_CONFIG="/etc/pisky/weewx-station.json"
 # pisky-weather.json because that file is merged into structures the web
 # interface renders, and a password must never travel that path.
 readonly HISTORY_CONFIG="/etc/pisky/history.json"
+readonly SITE_CONFIG="/var/lib/pisky/content/site.json"
 
 die()
 {
@@ -446,6 +447,7 @@ apply_config_set()
 	install_json "${flights}" "${ALLSKY_CONFIG}/pisky-flights.json" "pisky-flights"
 	apply_adsb_services "${flights}"
 	apply_sample_timer
+	apply_beacon_timer
 	rm -f -- "${weather}" "${flights}"
 	echo "PiSky observatory and local receiver configuration saved."
 }
@@ -550,6 +552,32 @@ apply_sample_timer()
 		systemctl enable --now pisky-sample.timer >/dev/null 2>&1 || true
 	else
 		systemctl disable --now pisky-sample.timer >/dev/null 2>&1 || true
+	fi
+}
+
+#
+# Enable or disable the shared-map beacon.
+#
+# The listing is a plain toggle in the site configuration, which the web
+# interface owns and writes itself. Only starting and stopping the timer needs
+# root, so that is all this does; it never reads or forwards the station's
+# position, because the map reads that from the station's own API.
+#
+apply_beacon_timer()
+{
+	local unit listed
+	unit="/etc/systemd/system/pisky-beacon.timer"
+	[[ -f ${unit} ]] || return 0
+
+	listed="false"
+	if [[ -r ${SITE_CONFIG} ]]; then
+		listed="$(jq -r '.directory.enabled // false' "${SITE_CONFIG}" 2>/dev/null)"
+	fi
+
+	if [[ ${listed} == "true" ]]; then
+		systemctl enable --now pisky-beacon.timer >/dev/null 2>&1 || true
+	else
+		systemctl disable --now pisky-beacon.timer >/dev/null 2>&1 || true
 	fi
 }
 
@@ -991,6 +1019,11 @@ main()
 		test-weewx-station)
 			[[ $# -eq 1 ]] || die "test-weewx-station takes no arguments."
 			test_weewx_station
+			;;
+		sync-directory)
+			[[ $# -eq 1 ]] || die "sync-directory takes no arguments."
+			apply_beacon_timer
+			echo "Shared-map listing applied."
 			;;
 		ensure-storage)
 			[[ $# -eq 1 ]] || die "ensure-storage takes no arguments."

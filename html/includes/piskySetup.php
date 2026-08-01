@@ -483,6 +483,40 @@ function DisplayPiSkySetup() {
 			} else if ($action === "test_weewx_station") {
 				$ok = pisky_admin_test_weewx_station($notice);
 				$noticeType = $ok ? "success" : "warning";
+			} else if ($action === "save_directory") {
+				/*
+				 * Listing on the shared map. Only the choice is stored here;
+				 * the position itself is never sent anywhere, because the map
+				 * reads it back from this station's own API.
+				 */
+				$site = pisky_site_config();
+				$directory = pisky_directory_config();
+				$directory["enabled"] = pisky_setup_checked("directory_enabled");
+				$directory["precision"] =
+					pisky_setup_post("directory_precision", "approximate", 16) === "exact"
+						? "exact" : "approximate";
+
+				// An identity is minted on the first opt-in and kept from then
+				// on, so turning the listing off and on again returns to the
+				// same pin rather than leaving an orphan behind.
+				if ($directory["enabled"] && pisky_directory_station_id($directory) === "") {
+					$directory["station_id"] = pisky_directory_new_station_id();
+				}
+
+				$site["directory"] = $directory;
+				$writeError = "";
+				$ok = pisky_site_write($site, $writeError);
+				if (!$ok) {
+					$notice = $writeError;
+				} else {
+					// Starting and stopping the timer needs root.
+					$output = array();
+					$exitCode = 1;
+					pisky_admin_run(array("sync-directory"), $output, $exitCode);
+					$notice = $directory["enabled"]
+						? "This station will be announced to the shared map within the hour."
+						: "Listing switched off. The station drops off the map at its next check.";
+				}
 			} else if ($action === "save_history") {
 				$historyErrors = array();
 				$historyHost = pisky_setup_post("history_host", "", 255);
@@ -700,6 +734,7 @@ $setupTabs = array(
 			</div>
 		</section>
 	</div>
+
 
 	<?php
 	// The provider choice and the WeeWX endpoints belong with the rest of the
@@ -1039,6 +1074,80 @@ $setupTabs = array(
 	</section>
 
 </form>
+
+<?php
+$directoryConfig = pisky_directory_config();
+$directoryListed = !empty($directoryConfig["enabled"]);
+$directoryBeacon = isset($directoryConfig["last_beacon"]) ? $directoryConfig["last_beacon"] : "";
+$directoryResult = isset($directoryConfig["last_result"]) ? $directoryConfig["last_result"] : "";
+$directoryPublic = pisky_site_public_url();
+?>
+<section class="pisky-glass pisky-panel pisky-setup-section" data-pisky-tab-panel="station">
+	<div class="pisky-panel-heading">
+		<div>
+			<span class="pisky-eyebrow">Shared map</span>
+			<h2>List on pisky.space</h2>
+		</div>
+		<span class="pisky-provider-pill <?php echo $directoryListed ? "is-active" : ""; ?>">
+			<?php echo $directoryListed ? "Listed" : "Not listed"; ?>
+		</span>
+	</div>
+	<p class="pisky-form-intro">
+		This station can appear on the shared map at
+		<a href="https://pisky.space/map" target="_blank" rel="noopener">pisky.space/map</a>.
+		It announces only its address; everything shown there is read back from
+		this station's own public API, so the map can never display something
+		this station is not already publishing, and switching this off removes
+		the pin at the next check.
+		<strong>Listing publishes roughly where this station is on a public
+		page.</strong>
+	</p>
+	<form method="post">
+		<input type="hidden" name="page" value="pisky_setup">
+		<input type="hidden" name="pisky_action" value="save_directory">
+		<?php if ($useLogin) CSRFToken(); ?>
+		<div class="pisky-form-grid">
+			<label class="pisky-toggle pisky-field-wide">
+				<input type="checkbox" name="directory_enabled" value="1"
+					<?php echo $directoryListed ? "checked" : ""; ?>>
+				<span>List this station on the shared PiSky map</span>
+			</label>
+			<label class="pisky-field pisky-field-wide">
+				<span>Published position</span>
+				<select class="form-control" name="directory_precision">
+					<option value="approximate"
+						<?php echo pisky_directory_precision($directoryConfig) === "approximate" ? "selected" : ""; ?>>
+						Approximate — rounded to about a kilometre
+					</option>
+					<option value="exact"
+						<?php echo pisky_directory_precision($directoryConfig) === "exact" ? "selected" : ""; ?>>
+						Exact — the coordinates configured above
+					</option>
+				</select>
+				<small class="pisky-field-hint">Rounded before it leaves the Pi, so the map is never sent a precise position.</small>
+			</label>
+		</div>
+		<?php if (!pisky_directory_reachable_url($directoryPublic)) { ?>
+		<div class="pisky-inline-notice is-error">
+			The shared map has to reach this station to list it. Set a public
+			address under Public Content before switching this on.
+		</div>
+		<?php } ?>
+		<div class="pisky-setup-actions">
+			<button class="btn btn-primary" type="submit" <?php echo $useLogin ? "" : "disabled"; ?>>
+				Save listing
+			</button>
+			<?php if ($directoryBeacon !== "") { ?>
+			<span>
+				Last announced <?php echo htmlspecialchars($directoryBeacon); ?> —
+				<?php echo htmlspecialchars($directoryResult); ?>
+			</span>
+			<?php } else if ($directoryListed) { ?>
+			<span>Not announced yet. The beacon runs hourly.</span>
+			<?php } ?>
+		</div>
+	</form>
+</section>
 
 <section class="pisky-glass pisky-panel pisky-setup-section pisky-weewx-wizard" data-pisky-tab-panel="weather" id="weewx-station">
 	<div class="pisky-panel-heading">

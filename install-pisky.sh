@@ -544,6 +544,12 @@ install_base()
 	run_root install -m 0644 -o root -g root "${sampler}" 		/etc/systemd/system/pisky-sample.service
 	sed -e "s|XX_PISKY_SAMPLE_INTERVAL_XX|300s|g" 		"${PISKY_ROOT}/config_repo/pisky-sample.timer.repo" > "${sampler}"
 	run_root install -m 0644 -o root -g root "${sampler}" 		/etc/systemd/system/pisky-sample.timer
+	# The beacon announces this station to the shared map at pisky.space. The
+	# unit is installed for everyone but only enabled once a host opts in, which
+	# piskyctl does when the listing is saved.
+	sed -e "s|XX_PISKY_ROOT_XX|$(sed_escape "${PISKY_ROOT}")|g" 		"${PISKY_ROOT}/config_repo/pisky-beacon.service.repo" > "${sampler}"
+	run_root install -m 0644 -o root -g root "${sampler}" 		/etc/systemd/system/pisky-beacon.service
+	run_root install -m 0644 -o root -g root 		"${PISKY_ROOT}/config_repo/pisky-beacon.timer.repo" 		/etc/systemd/system/pisky-beacon.timer
 	rm -f -- "${sampler}"
 
 	# pisky.conf now exists, so piskyctl can create the rest of the layout.

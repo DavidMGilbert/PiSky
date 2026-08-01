@@ -1,0 +1,17 @@
+[Unit]
+Description=Announce this PiSky station to the shared map
+Documentation=https://wiki.pisky.space
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/php XX_PISKY_ROOT_XX/scripts/pisky-beacon.php
+# The directory being unreachable is ordinary. Failing the unit here would
+# silence the timer and quietly drop the station off the map for good.
+SuccessExitStatus=0
+TimeoutStartSec=45
+Nice=10
+IOSchedulingClass=idle

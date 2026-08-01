@@ -165,7 +165,7 @@ function pisky_api_station($settings_array) {
 		}
 	}
 	$name = trim(strval(getVariableOrDefault($settings_array, "location", "")));
-	return array(
+	$payload = array(
 		"ok" => true,
 		"name" => $name !== "" ? $name : "PiSky Observatory",
 		"tagline" => isset($site["tagline"]) ? $site["tagline"] : "",
@@ -173,6 +173,40 @@ function pisky_api_station($settings_array) {
 		"location" => $location,
 		"software" => array("name" => "PiSky", "api_version" => PISKY_API_VERSION)
 	);
+
+	/*
+	 * Listing on the shared map.
+	 *
+	 * The station announces its address to pisky.space and the map reads this
+	 * block back to decide what to draw, so this is the single authority on
+	 * whether the station is listed and where. Absent means not listed: a host
+	 * who switches it off disappears at the next check without having to ask
+	 * anyone to remove anything.
+	 */
+	$directory = pisky_directory_config();
+	if (!empty($directory["enabled"])) {
+		$identifier = pisky_directory_station_id($directory);
+		$precision = pisky_directory_precision($directory);
+		$latitude = pisky_decimal_coordinate(
+			isset($flights["latitude"]) ? $flights["latitude"] : ""
+		);
+		$longitude = pisky_decimal_coordinate(
+			isset($flights["longitude"]) ? $flights["longitude"] : ""
+		);
+		// Without both a position and an identity there is nothing to place.
+		if ($identifier !== "" && $latitude !== null && $longitude !== null) {
+			$payload["directory"] = array(
+				"listed" => true,
+				"station_id" => $identifier,
+				"precision" => $precision,
+				"latitude" => pisky_directory_round($latitude, $precision),
+				"longitude" => pisky_directory_round($longitude, $precision),
+				"url" => pisky_site_public_url()
+			);
+		}
+	}
+
+	return $payload;
 }
 
 function pisky_api_weather($settings_array) {
