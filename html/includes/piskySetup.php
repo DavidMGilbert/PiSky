@@ -95,6 +95,98 @@ function pisky_setup_service_card($id, $label, $description, $service, $csrfEnab
 <?php
 }
 
+/*
+ * A modal editor for a raw configuration file.
+ *
+ * Configuration files are hundreds of lines long, so showing one inline turns
+ * whatever page it is on into a scroll. Each opens as a modal instead, from a
+ * button that costs one row. Add another by calling this with its own action
+ * and field name; the highlighting grammar is chosen per editor.
+ *
+ * $contents is written into a textarea, so it must be the file as read, and it
+ * is escaped here rather than by the caller.
+ */
+function pisky_setup_code_dialog($id, $eyebrow, $filename, $action, $field, $contents, $grammar, $footnote) {
+?>
+<dialog class="pisky-code-dialog" id="<?php echo htmlspecialchars($id); ?>" data-pisky-code-dialog
+	aria-labelledby="<?php echo htmlspecialchars($id); ?>-title">
+	<form method="post" class="pisky-code-dialog-shell">
+		<input type="hidden" name="page" value="pisky_setup">
+		<input type="hidden" name="pisky_action" value="<?php echo htmlspecialchars($action); ?>">
+		<?php CSRFToken(); ?>
+		<header class="pisky-code-dialog-head">
+			<div>
+				<span class="pisky-eyebrow"><?php echo htmlspecialchars($eyebrow); ?></span>
+				<strong id="<?php echo htmlspecialchars($id); ?>-title"><?php echo htmlspecialchars($filename); ?></strong>
+			</div>
+			<button class="pisky-scope-close" type="button" data-pisky-code-close
+				aria-label="Close the configuration editor">&times;</button>
+		</header>
+		<div class="pisky-code-surface">
+			<pre class="pisky-code-highlight" data-pisky-code-highlight aria-hidden="true"></pre>
+			<textarea class="pisky-code-editor" name="<?php echo htmlspecialchars($field); ?>"
+				spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="off"
+				aria-label="<?php echo htmlspecialchars($filename); ?>"
+				data-pisky-code-input
+				data-pisky-code-grammar="<?php echo htmlspecialchars($grammar); ?>"><?php echo htmlspecialchars($contents); ?></textarea>
+		</div>
+		<footer class="pisky-code-dialog-foot">
+			<span><?php echo htmlspecialchars($footnote); ?></span>
+			<div class="pisky-code-dialog-actions">
+				<button class="btn btn-default" type="button" data-pisky-code-close>Cancel</button>
+				<button class="btn btn-primary" type="submit">Validate and save</button>
+			</div>
+		</footer>
+	</form>
+</dialog>
+<?php
+}
+
+/*
+ * A modal map for choosing a coordinate.
+ *
+ * The number fields stay the source of truth and remain editable; this only
+ * writes into them. That keeps the picker optional, so a host who already has
+ * their coordinates types them as before, and a browser without dialog or
+ * canvas support loses a convenience rather than the ability to set a position.
+ */
+function pisky_setup_map_dialog($id, $title, $description, $latitudeName, $longitudeName) {
+?>
+<dialog class="pisky-map-dialog" id="<?php echo htmlspecialchars($id); ?>" data-pisky-map-dialog
+	data-pisky-map-latitude="<?php echo htmlspecialchars($latitudeName); ?>"
+	data-pisky-map-longitude="<?php echo htmlspecialchars($longitudeName); ?>"
+	aria-labelledby="<?php echo htmlspecialchars($id); ?>-title">
+	<div class="pisky-map-dialog-shell">
+		<header class="pisky-code-dialog-head">
+			<div>
+				<span class="pisky-eyebrow">Choose a position</span>
+				<strong id="<?php echo htmlspecialchars($id); ?>-title"><?php echo htmlspecialchars($title); ?></strong>
+			</div>
+			<button class="pisky-scope-close" type="button" data-pisky-map-cancel
+				aria-label="Close the map">&times;</button>
+		</header>
+		<p class="pisky-form-intro"><?php echo htmlspecialchars($description); ?></p>
+		<div class="pisky-map-stage">
+			<canvas class="pisky-map-canvas" data-pisky-map-canvas tabindex="0"
+				aria-label="Draggable map. Arrow keys pan, plus and minus zoom."></canvas>
+			<div class="pisky-map-zoom">
+				<button type="button" data-pisky-map-zoom="1" aria-label="Zoom in">+</button>
+				<button type="button" data-pisky-map-zoom="-1" aria-label="Zoom out">&minus;</button>
+			</div>
+			<span class="pisky-map-attribution pisky-map-credit">Map &copy; OpenStreetMap contributors</span>
+		</div>
+		<footer class="pisky-code-dialog-foot">
+			<span>Crosshair at <b data-pisky-map-readout>—</b></span>
+			<div class="pisky-code-dialog-actions">
+				<button class="btn btn-default" type="button" data-pisky-map-cancel>Cancel</button>
+				<button class="btn btn-primary" type="button" data-pisky-map-apply>Use this location</button>
+			</div>
+		</footer>
+	</div>
+</dialog>
+<?php
+}
+
 function DisplayPiSkySetup() {
 	global $useLogin;
 
@@ -599,6 +691,13 @@ $setupTabs = array(
 						placeholder="auto">
 				</label>
 			</div>
+			<div class="pisky-setup-actions">
+				<button class="btn btn-default" type="button"
+					data-pisky-map-open="pisky-station-location">
+					<i class="fa fa-map-location-dot" aria-hidden="true"></i>
+					Pick on a map
+				</button>
+			</div>
 		</section>
 
 		<section class="pisky-glass pisky-panel">
@@ -884,6 +983,13 @@ $setupTabs = array(
 						<?php echo isset($coverageMap["public"]) && $coverageMap["public"] ? "checked" : ""; ?>>
 					<span>Allow the coverage map on public Air Traffic pages (reveals station position)</span>
 				</label>
+			</div>
+			<div class="pisky-setup-actions">
+				<button class="btn btn-default" type="button"
+					data-pisky-map-open="pisky-coverage-centre">
+					<i class="fa fa-map-location-dot" aria-hidden="true"></i>
+					Pick the radar centre on a map
+				</button>
 			</div>
 		</div>
 	</section>
@@ -1257,28 +1363,72 @@ $historyDriverReady = class_exists("PDO")
 	</div>
 </section>
 
-<?php if ($weewxConfig !== null && $useLogin) { ?>
-<details class="pisky-glass pisky-panel pisky-advanced-config pisky-setup-section">
-	<summary>
-		<span>
+<?php
+/*
+ * The raw WeeWX file belongs with the rest of the weather settings. It used to
+ * sit outside the tab panels entirely, which meant it was on screen no matter
+ * which tab was chosen, and a config file is long enough that it turned every
+ * other tab into a scroll. It is now launched as a modal from the Weather tab.
+ */
+if ($weewxConfig !== null && $useLogin) { ?>
+<section class="pisky-glass pisky-panel pisky-setup-section pisky-advanced-config"
+	data-pisky-tab-panel="weather">
+	<div class="pisky-section-heading">
+		<div>
 			<span class="pisky-eyebrow">Advanced local station</span>
-			<strong>Full WeeWX configuration</strong>
-		</span>
-		<i class="fa fa-chevron-down" aria-hidden="true"></i>
-	</summary>
-	<p>Configure the station driver and any hardware-specific settings here. PiSky validates required sections and creates a backup before restarting an active WeeWX service.</p>
-	<form method="post">
-		<input type="hidden" name="page" value="pisky_setup">
-		<input type="hidden" name="pisky_action" value="save_weewx">
-		<?php if ($useLogin) CSRFToken(); ?>
-		<textarea class="form-control pisky-code-editor" name="weewx_config" rows="28"
-			spellcheck="false"><?php echo htmlspecialchars($weewxConfig); ?></textarea>
-		<button class="btn btn-primary" type="submit">Validate and save WeeWX</button>
-	</form>
-</details>
+			<h2>Full WeeWX configuration</h2>
+		</div>
+		<button class="btn btn-default" type="button" data-pisky-code-open="pisky-weewx-config">
+			<i class="fa fa-code" aria-hidden="true"></i>
+			Open configuration editor
+		</button>
+	</div>
+	<p class="pisky-form-intro">
+		The station driver and any hardware-specific settings live in
+		<code>weewx.conf</code>. Editing it directly is only needed for hardware
+		the guided setup above does not cover. PiSky validates the required
+		sections and writes a backup before restarting an active WeeWX service.
+	</p>
+</section>
+
+<?php
+pisky_setup_code_dialog(
+	"pisky-weewx-config",
+	"Advanced local station",
+	"weewx.conf",
+	"save_weewx",
+	"weewx_config",
+	$weewxConfig,
+	"conf",
+	"A backup is written before an active service is restarted."
+);
+?>
 <?php } else if ($weewxError !== "") { ?>
-	<div class="alert alert-warning pisky-setup-section"><?php echo htmlspecialchars($weewxError); ?></div>
-<?php } ?>
+	<div class="alert alert-warning pisky-setup-section" data-pisky-tab-panel="weather"><?php echo htmlspecialchars($weewxError); ?></div>
+<?php }
+
+/*
+ * Location pickers. Kept outside the tab panels because a closed dialog takes
+ * no space and belongs to no panel; only the buttons that open them sit inside
+ * a tab.
+ */
+pisky_setup_map_dialog(
+	"pisky-station-location",
+	"Station position",
+	"Drag the map so the crosshair sits over the observatory.",
+	"latitude",
+	"longitude"
+);
+if ($capabilities["flights"]) {
+	pisky_setup_map_dialog(
+		"pisky-coverage-centre",
+		"Radar centre",
+		"Drag the map to choose where the coverage map is centred. Leave the fields empty to follow the station position.",
+		"coverage_map_latitude",
+		"coverage_map_longitude"
+	);
+}
+?>
 
 <script>
 (function () {

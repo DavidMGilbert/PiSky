@@ -376,13 +376,19 @@ if (!empty($coverageMap["enabled"]) && !empty($coverageMap["public"])
 					<h3>Flight and aircraft details</h3>
 					<p>Choose a target on the radar or in the list to inspect locally decoded information.</p>
 				</aside>
-			</div>
 
-			<footer class="pisky-scope-credit">
-				<span data-pisky-flights="decoder">Local receiver</span>
-				<span>Updated <b data-pisky-flights="observed_at">—</b></span>
-				<span class="pisky-map-attribution">Map © OpenStreetMap contributors</span>
-			</footer>
+				<?php
+				// Inside the overlay grid rather than pinned to the bottom of
+				// the stage. Absolutely positioned it sat underneath the target
+				// list, which reaches the same edge, and the attribution and
+				// update time were covered up.
+				?>
+				<footer class="pisky-scope-credit">
+					<span data-pisky-flights="decoder">Local receiver</span>
+					<span>Updated <b data-pisky-flights="observed_at">—</b></span>
+					<span class="pisky-map-attribution">Map © OpenStreetMap contributors</span>
+				</footer>
+			</div>
 		</section>
 		<?php } ?>
 

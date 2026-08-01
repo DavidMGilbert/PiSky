@@ -235,45 +235,36 @@ code {
 	background: transparent;
 }
 
-.navbar.navbar-default.navbar-static-top {
-	min-height: 74px;
-	margin: 12px 12px 0 !important;
-	border: 1px solid var(--pisky-border);
-	border-radius: 19px;
-	background:
-		linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 40%),
-		rgba(16, 21, 39, 0.72);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 55px rgba(0, 0, 0, 0.25);
-	backdrop-filter: blur(28px) saturate(140%);
-	-webkit-backdrop-filter: blur(28px) saturate(140%);
-}
-
-.navbar-header {
-	position: relative;
-	width: 100%;
-	height: 72px;
-}
-
-.pisky-navbar-brand {
+/*
+ * The brand sits at the head of the navigation rail rather than in a bar of
+ * its own across the top of the page. A bar there scrolled away with the
+ * content while the rail beneath it stayed pinned, which left a band of empty
+ * background above the menu. One column cannot come apart that way.
+ */
+.pisky-sidebar-head {
 	display: flex;
-	width: 100%;
-	height: 72px !important;
+	padding: 7px 10px 12px;
+	margin-bottom: 5px;
+	border-bottom: 1px solid var(--pisky-border);
 	align-items: center;
-	padding: 0 18px !important;
+	justify-content: space-between;
+	gap: 10px;
+	flex: none;
 }
 
-.pisky-navbar-brand > a.navbar-brand {
+.pisky-sidebar-brand,
+.pisky-sidebar-brand:hover,
+.pisky-sidebar-brand:focus {
 	display: flex;
-	height: auto;
 	align-items: center;
 	gap: 11px;
-	padding: 0;
 	color: var(--pisky-ink);
 	line-height: 1;
+	text-decoration: none;
 }
 
-.pisky-navbar-brand > a.navbar-brand:hover,
-.pisky-navbar-brand > a.navbar-brand:focus {
+.pisky-sidebar-brand:hover,
+.pisky-sidebar-brand:focus {
 	color: #fff;
 }
 
@@ -294,13 +285,27 @@ code {
 	font-size: 12.5px;
 }
 
+/*
+ * Reference information, so it sits at the foot of the rail and keeps the
+ * eye-level space for navigation.
+ *
+ * Capped deliberately. The status line is filled from the service and a fault
+ * can make it many lines long; unbounded it would push the menu out of the
+ * rail entirely, so a bad status would cost the operator their navigation at
+ * exactly the moment they need it.
+ */
 .version-title {
 	display: block;
-	flex: 1;
-	margin-left: 28px;
+	flex: none;
+	max-height: 30%;
+	overflow-y: auto;
+	padding: 9px 10px 2px;
+	margin-top: 6px;
+	border-top: 1px solid var(--pisky-border);
 	color: var(--pisky-subtle) !important;
-	font-size: 12.5px;
-	line-height: 1.55;
+	font-size: 11.5px;
+	line-height: 1.5;
+	scrollbar-width: thin;
 }
 
 .version-title .alert-success,
@@ -316,20 +321,21 @@ code {
 }
 
 /*
- * The whole menu is meant to be visible at once, so this must not scroll
- * internally. Twenty-one rows at the larger type will not fit a laptop
- * viewport at comfortable spacing, so the rows themselves are compact and the
- * sidebar sizes to its content rather than being stretched to the viewport.
+ * The rail spans the window from top to bottom. Brand and status are pinned at
+ * its ends and only the menu between them can scroll, so on a window too short
+ * for every row the rail still reads as one continuous column rather than a
+ * panel floating part-way down the page.
  */
 .navbar-default.sidebar {
 	position: fixed;
-	top: 86px;
+	top: 12px;
+	bottom: 12px;
 	left: 12px;
+	display: flex;
 	width: 232px;
-	max-height: calc(100vh - 98px);
-	margin: 12px 0 0;
 	padding: 10px 9px;
-	overflow: visible;
+	margin: 0;
+	overflow: hidden;
 	border: 1px solid var(--pisky-border);
 	border-radius: 18px;
 	background:
@@ -338,10 +344,40 @@ code {
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 65px rgba(0, 0, 0, 0.27);
 	backdrop-filter: blur(26px) saturate(140%);
 	-webkit-backdrop-filter: blur(26px) saturate(140%);
+	flex-direction: column;
 }
 
 .sidebar .sidebar-nav {
+	padding: 0;
+	border: 0;
 	background: transparent;
+	flex: 1;
+	/* A flex child will not shrink below its content without this, so the menu
+	   would overflow the rail instead of scrolling inside it. */
+	min-height: 0;
+}
+
+/*
+ * The whole menu is still meant to be visible at once. The compact rows below
+ * are what achieve that; this is only the last resort on a very short window,
+ * and it scrolls the menu alone rather than taking the brand and status with
+ * it. The scroll lives on the list rather than its Bootstrap collapse wrapper,
+ * whose own rules carry !important and would override anything set here.
+ */
+.sidebar #side-menu {
+	max-height: 100%;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.sidebar #side-menu::-webkit-scrollbar {
+	width: 7px;
+}
+
+.sidebar #side-menu::-webkit-scrollbar-thumb {
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.16);
 }
 
 .sidebar ul li,
@@ -409,11 +445,9 @@ code {
  * rather than the default, so the menu stays fully visible wherever it can.
  */
 @media (max-height: 860px) {
-	.navbar-default.sidebar {
-		top: 78px;
-		max-height: calc(100vh - 88px);
-		overflow-y: auto;
-		scrollbar-width: thin;
+	.pisky-sidebar-head {
+		padding-bottom: 9px;
+		margin-bottom: 3px;
 	}
 
 	/* The .dark variants must be listed too: they carry higher specificity
@@ -452,9 +486,16 @@ code {
 /* A 720-tall window is the tightest case that still needs the whole menu. */
 @media (max-height: 780px) {
 	.navbar-default.sidebar {
-		top: 70px;
-		max-height: calc(100vh - 84px);
 		padding: 6px 8px;
+	}
+
+	.pisky-brand-copy small {
+		display: none;
+	}
+
+	.version-title {
+		padding-top: 7px;
+		font-size: 11px;
 	}
 
 	.sidebar ul li a,
@@ -484,9 +525,9 @@ code {
 #page-wrapper,
 .dark #page-wrapper {
 	position: relative;
-	min-height: calc(100vh - 98px) !important;
+	min-height: calc(100vh - 24px) !important;
 	margin: 12px 12px 0 250px;
-	padding: 28px clamp(18px, 2.6vw, 38px) 0;
+	padding: 22px clamp(18px, 2.6vw, 38px) 0;
 	border: 0;
 	background: transparent;
 }
@@ -2449,40 +2490,262 @@ body.pisky-public {
 	font-size: 12.5px;
 }
 
-.pisky-advanced-config summary {
+/* ------------------------------------------------------------------
+ * Modal dialogs: raw configuration editor and location picker
+ *
+ * Both are <dialog> elements so focus containment, Escape and the
+ * backdrop come from the browser rather than being reimplemented. A
+ * closed dialog is display:none by user-agent rule, so neither costs
+ * any layout on the page that owns it.
+ * ------------------------------------------------------------------ */
+
+.pisky-code-dialog,
+.pisky-map-dialog {
+	width: min(1020px, 94vw);
+	max-width: none;
+	max-height: 90vh;
+	padding: 0;
+	border: 1px solid var(--pisky-border);
+	border-radius: 20px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%),
+		rgba(15, 20, 37, 0.97);
+	color: var(--pisky-ink);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 34px 90px rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+}
+
+.pisky-code-dialog::backdrop,
+.pisky-map-dialog::backdrop {
+	background: rgba(4, 6, 14, 0.66);
+	backdrop-filter: blur(3px);
+}
+
+/* Fallback when the browser has no modal support: the dialog still opens,
+   inline and in flow, rather than the editor being unreachable. */
+.pisky-code-dialog.is-inline,
+.pisky-map-dialog.is-inline {
+	position: static;
+	max-height: none;
+	margin: 18px 0;
+}
+
+.pisky-code-dialog-shell,
+.pisky-map-dialog-shell {
+	display: flex;
+	max-height: 90vh;
+	padding: 18px 20px 16px;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.pisky-code-dialog-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	flex: none;
+}
+
+.pisky-code-dialog-head strong {
+	display: block;
+	margin-top: 5px;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 18px;
+}
+
+/* The close control is positioned against its card elsewhere; in a dialog
+   header it is just the last item on the row. */
+.pisky-code-dialog-head .pisky-scope-close {
+	position: static;
+	flex: none;
+}
+
+.pisky-code-dialog-foot {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 16px;
-	cursor: pointer;
-	list-style: none;
-}
-
-.pisky-advanced-config summary::-webkit-details-marker {
-	display: none;
-}
-
-.pisky-advanced-config summary strong {
-	display: block;
-	margin-top: 6px;
-	font-size: 17.5px;
-}
-
-.pisky-advanced-config > p {
-	margin: 16px 0;
+	flex: none;
 	color: var(--pisky-muted);
 	font-size: 12.5px;
+}
+
+.pisky-code-dialog-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.pisky-advanced-config .pisky-form-intro {
+	margin-bottom: 0;
+}
+
+/*
+ * Editor: a coloured copy of the text sits behind a transparent textarea. Every
+ * property that affects where a glyph lands must be identical on both layers or
+ * the colours drift away from the characters, so they are set together and any
+ * change to one must be made to the other.
+ */
+.pisky-code-surface {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	height: min(58vh, 620px);
+	border: 1px solid var(--pisky-border);
+	border-radius: 13px;
+	background: rgba(5, 8, 19, 0.55);
+	overflow: hidden;
+}
+
+.pisky-code-highlight,
+.pisky-code-editor {
+	margin: 0;
+	padding: 13px 15px;
+	border: 0;
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
 	line-height: 1.6;
+	tab-size: 4;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
+.pisky-code-highlight {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	color: var(--pisky-ink);
+	pointer-events: none;
 }
 
 .pisky-code-editor {
-	min-height: 420px;
-	margin-bottom: 12px;
-	padding: 13px;
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background: transparent;
+	color: transparent;
+	caret-color: var(--pisky-ink);
+	resize: none;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.pisky-code-editor:focus {
+	outline: 0;
+}
+
+.pisky-code-surface:focus-within {
+	border-color: var(--pisky-highlight);
+}
+
+/* Selection has to stay visible through transparent text. */
+.pisky-code-editor::selection {
+	background: rgba(136, 117, 230, 0.42);
+	color: transparent;
+}
+
+.pisky-code-editor::-webkit-scrollbar {
+	width: 9px;
+	height: 9px;
+}
+
+.pisky-code-editor::-webkit-scrollbar-thumb {
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.16);
+}
+
+.pisky-tok-comment { color: #6f7891; font-style: italic; }
+.pisky-tok-section { color: #ffbd7a; font-weight: 650; }
+.pisky-tok-key { color: #9db2ff; }
+.pisky-tok-op { color: #6f7891; }
+.pisky-tok-value { color: #5ee6aa; }
+
+/* Location picker */
+.pisky-map-stage {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	height: min(56vh, 560px);
+	border: 1px solid var(--pisky-border);
+	border-radius: 13px;
+	background: #0d1222;
+	overflow: hidden;
+}
+
+.pisky-map-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	cursor: grab;
+	touch-action: none;
+}
+
+.pisky-map-canvas.is-dragging {
+	cursor: grabbing;
+}
+
+.pisky-map-canvas:focus-visible {
+	outline: 2px solid var(--pisky-highlight);
+	outline-offset: -2px;
+}
+
+.pisky-map-zoom {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.pisky-map-zoom button {
+	width: 32px;
+	height: 32px;
+	border: 1px solid var(--pisky-border);
+	border-radius: 9px;
+	background: rgba(12, 16, 31, 0.86);
+	color: var(--pisky-ink);
+	font-size: 17px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.pisky-map-zoom button:hover,
+.pisky-map-zoom button:focus-visible {
+	border-color: var(--pisky-highlight);
+	background: rgba(24, 30, 52, 0.94);
+}
+
+.pisky-map-credit {
+	position: absolute;
+	right: 8px;
+	bottom: 6px;
+	padding: 2px 7px;
+	border-radius: 7px;
+	background: rgba(8, 11, 22, 0.72);
+	font-size: 11px;
+	pointer-events: none;
+}
+
+.pisky-code-dialog-foot b {
 	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-	font-size: 12.5px;
-	line-height: 1.55;
-	resize: vertical;
+	color: var(--pisky-ink);
+}
+
+@media (max-width: 650px) {
+	.pisky-code-dialog-foot {
+		align-items: stretch;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.pisky-code-dialog-actions .btn {
+		flex: 1;
+	}
 }
 
 .pisky-public-footer {
@@ -2750,11 +3013,14 @@ body.pisky-public {
 		grid-template-columns: 1fr;
 	}
 
+	/* Too narrow for a rail, so it unwinds into a header with the menu folded
+	   away beneath it. */
 	.navbar-default.sidebar {
 		position: relative;
 		top: 0;
 		bottom: auto;
 		left: 0;
+		display: block;
 		width: calc(100% - 24px);
 		margin: 0 12px;
 		padding: 0;
@@ -2764,6 +3030,17 @@ body.pisky-public {
 		box-shadow: none;
 		backdrop-filter: none;
 		-webkit-backdrop-filter: none;
+	}
+
+	.pisky-sidebar-head {
+		padding: 14px 4px 0;
+		margin-bottom: 0;
+		border-bottom: 0;
+	}
+
+	.sidebar #side-menu {
+		max-height: none;
+		overflow-y: visible;
 	}
 
 	.navbar-default.sidebar .sidebar-nav.navbar-collapse {
@@ -2799,20 +3076,13 @@ body.pisky-public {
 		position: relative;
 		z-index: 2;
 		display: block;
-		margin-top: 18px;
+		margin: 0;
 		border-color: rgba(255, 255, 255, 0.1);
 		background: rgba(255, 255, 255, 0.05);
 	}
 
 	.navbar-default .navbar-toggle .icon-bar {
 		background-color: #b9bfd0;
-	}
-
-	.pisky-navbar-brand {
-		position: absolute;
-		top: 0;
-		left: 0;
-		padding-left: 64px !important;
 	}
 
 	.pisky-public-nav {
@@ -2871,10 +3141,6 @@ body.pisky-public {
 	.pisky-weewx-test-form {
 		align-items: stretch;
 		flex-direction: column;
-	}
-
-	.navbar.navbar-default.navbar-static-top {
-		margin: 8px 8px 0 !important;
 	}
 
 	.navbar-default.sidebar {
@@ -3192,7 +3458,6 @@ body.pisky-public {
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
 }
 
-body.pisky-theme-light .navbar.navbar-default.navbar-static-top,
 body.pisky-theme-light .navbar-default.sidebar,
 body.pisky-theme-light .pisky-allsky-settings .settings-nav {
 	background-color: rgba(255, 255, 255, 0.72);
@@ -3762,6 +4027,39 @@ body.pisky-public.pisky-theme-light {
 		linear-gradient(145deg, #eef2fa 0%, #f8faff 46%, #e9eff9 100%);
 }
 
+body.pisky-theme-light .pisky-code-dialog,
+body.pisky-theme-light .pisky-map-dialog {
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.6) 44%),
+		rgba(250, 252, 255, 0.99);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 34px 90px rgba(55, 69, 107, 0.26);
+}
+
+body.pisky-theme-light .pisky-code-dialog::backdrop,
+body.pisky-theme-light .pisky-map-dialog::backdrop {
+	background: rgba(88, 100, 130, 0.42);
+}
+
+body.pisky-theme-light .pisky-code-surface {
+	background: rgba(255, 255, 255, 0.8);
+}
+
+/* Retuned for a light background: the dark-theme colours are chosen against
+   near-black and several of them fail contrast on white. */
+body.pisky-theme-light .pisky-tok-comment { color: #74809b; }
+body.pisky-theme-light .pisky-tok-section { color: #a4531b; }
+body.pisky-theme-light .pisky-tok-key { color: #3550b4; }
+body.pisky-theme-light .pisky-tok-op { color: #6b7591; }
+body.pisky-theme-light .pisky-tok-value { color: #16794d; }
+
+body.pisky-theme-light .pisky-map-zoom button {
+	background: rgba(255, 255, 255, 0.94);
+}
+
+body.pisky-theme-light .pisky-map-credit {
+	background: rgba(255, 255, 255, 0.86);
+}
+
 body.pisky-theme-light .pisky-glass {
 	background:
 		linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.35) 44%),
@@ -3881,14 +4179,19 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
 	height: 100%;
 }
 
+/*
+ * The last row is the credit strip. Giving it a row of its own is what stops
+ * the target list and the detail card, which both reach the bottom of their
+ * row, from covering the attribution and the update time.
+ */
 .pisky-scope-overlay {
 	position: absolute;
 	inset: 0;
 	display: grid;
 	padding: 18px;
-	gap: 14px;
+	gap: 14px 14px;
 	grid-template-columns: minmax(0, 1fr) auto;
-	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr) auto;
 	pointer-events: none;
 }
 
@@ -4005,7 +4308,6 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
 	grid-column: 1;
 	align-self: end;
 	justify-self: start;
-	transition: max-height 0.24s ease;
 }
 
 /*
@@ -4013,9 +4315,18 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
  * the detail rows and the external lookup links are all reachable without
  * scrolling inside a short panel.
  */
+/*
+ * Spans the stats and list rows, but stops short of the credit row so a
+ * selected aircraft still cannot hide the attribution.
+ *
+ * Opening is not animated. Both heights here are percentages of a grid area
+ * that changes size in the same frame, and Chrome leaves that transition
+ * parked on its start value, so the card would sit at its closed height
+ * indefinitely instead of opening at all.
+ */
 .pisky-scope-detail.is-open {
-	max-height: calc(100% - 24px);
-	grid-row: 1 / -1;
+	max-height: 100%;
+	grid-row: 1 / 3;
 	align-self: stretch;
 }
 
@@ -4062,16 +4373,24 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
 }
 
 .pisky-scope-credit {
-	position: absolute;
-	right: 18px;
-	bottom: 12px;
-	left: 18px;
 	display: flex;
-	gap: 14px;
+	gap: 6px 14px;
+	grid-row: 3;
+	grid-column: 1 / -1;
+	align-items: baseline;
 	justify-content: flex-end;
+	flex-wrap: wrap;
 	color: var(--pisky-subtle);
 	font-size: 13px;
 	pointer-events: none;
+}
+
+/* The map credit is a block with its own padding elsewhere; in this strip it
+   is just another item on the line. */
+.pisky-scope-credit .pisky-map-attribution {
+	display: inline;
+	padding: 0;
+	font-size: inherit;
 }
 
 .pisky-scope-credit b {
@@ -4088,7 +4407,7 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
 		padding: 12px;
 		gap: 10px;
 		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: auto minmax(0, 1fr) auto;
+		grid-template-rows: auto minmax(0, 1fr) auto auto;
 	}
 
 	.pisky-scope-stats {
@@ -4122,6 +4441,8 @@ body.pisky-theme-light .pisky-settings-table > tbody > tr.form-group > td {
 	}
 
 	.pisky-scope-credit {
+		grid-row: 4;
+		grid-column: 1;
 		justify-content: flex-start;
 	}
 }

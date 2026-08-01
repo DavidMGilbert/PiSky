@@ -217,6 +217,8 @@ if ($useRemoteWebsite) {
 	<script src="/js/pisky-weather.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-weather.js"); ?>"></script>
 	<script src="/js/pisky-flights.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-flights.js"); ?>"></script>
 	<script src="/js/pisky-setup-tabs.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-setup-tabs.js"); ?>"></script>
+	<script src="/js/pisky-code-dialog.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-code-dialog.js"); ?>"></script>
+	<script src="/js/pisky-map-picker.js?c=<?php echo filemtime(__DIR__ . "/js/pisky-map-picker.js"); ?>"></script>
 	<script> var allskyPage='<?php echo $page ?>';  </script>
 
 	<!-- Custom Theme JavaScript -->
@@ -245,89 +247,30 @@ if ($useRemoteWebsite) {
 </head>
 <body class="pisky-admin">
 <div id="wrapper">
-	<!-- Navigation -->
-	<nav class="navbar navbar-default navbar-static-top" role="navigation" style="margin-bottom: 0">
-		<div class="navbar-header">
+	<!--
+		Navigation. Add "id" to any page that needs to be refreshed.
+
+		Brand, status and menu all live in the one left rail. They used to be
+		split between a page-width bar and a fixed sidebar, which meant that
+		scrolling carried the bar away and left the sidebar hanging below an
+		empty strip. A single full-height rail cannot develop that gap.
+	-->
+	<div class="navbar-default sidebar" role="navigation">
+		<div class="pisky-sidebar-head">
+			<a id="index" class="pisky-sidebar-brand" href="/admin/">
+				<span class="pisky-brand-mark" aria-hidden="true"><span></span></span>
+				<div class="pisky-brand-copy">
+					<strong>PiSky</strong>
+					<small>Modular sky observations</small>
+				</div>
+			</a>
 			<button type="button" class="navbar-toggle as-nav-toggle" data-toggle="collapse" data-target=".pisky-sidebar-collapse" aria-expanded="false">
 				<span class="sr-only">Toggle navigation</span>
 				<span class="icon-bar"></span>
 				<span class="icon-bar"></span>
 				<span class="icon-bar"></span>
 			</button>
-			<div class="navbar-brand valign-center pisky-navbar-brand">
-				<a id="index" class="navbar-brand valign-center" href="/admin/">
-					<span class="pisky-brand-mark" aria-hidden="true"><span></span></span>
-					<div class="pisky-brand-copy">
-						<strong>PiSky</strong>
-						<small>Modular sky observations</small>
-					</div>
-				</a>
-				<div class="version-title version-title-color">
-					<span id="allskyStatus"><?php
-						echo $piskyCapabilities["camera"]
-							? output_allsky_status()
-							: "<span class='nowrap alert-success'>Platform: Running</span><br>";
-					?></span>
-<?php
-					$versionInfo = $piskyCapabilities["camera"]
-						? getNewestAllskyVersion($changed) : null;
-					if ($versionInfo !== null) {
-						$newestVersion = $versionInfo['version'];
-					} else {
-						$newestVersion = null;
-					}
-					if ($newestVersion !== null && $newestVersion > ALLSKY_VERSION) {
-						$note = getVariableOrDefault($versionInfo, "versionNote", "");
-						$more = "title='New Version $newestVersion Available";
-						if ($note !== "") {
-							$more .= ", $note";
-						}
-						$more .= "' style='background-color: red; color: white;'";
-
-						if ($changed) {
-							$x = "<br>&nbsp; &nbsp;";
-							$msg = "$x<strong>";
-							$msg .= "A new release of Allsky is available: $newestVersion";
-							$msg .= "</strong>";
-							if ($note !== "") {
-								$msg .= "$x$note";
-							}
-							$msg .= "<br><br>";
-							$cmd = ALLSKY_SCRIPTS . "/addMessage.sh";
-							$cmd .= " --no-date --type success --msg '${msg}'";
-							runCommand($cmd, "", "");
-						}
-					} else {
-						$more = "";
-					}
-					echo "<span class='nowrap'>";
-						$displayVersion = $piskyCapabilities["camera"]
-							? ALLSKY_VERSION
-							: trim(@file_get_contents(dirname(__DIR__) . "/PISKY_VERSION"));
-						echo "<span $more>Version: " . htmlspecialchars($displayVersion) . "</span>";
-						echo "&nbsp; on &nbsp;";
-						echo "<span style='font-weight: bold'>$hostname</span>";
-					echo "</span>";
-if ($useLocalWebsite) {
-					echo "<br>";
-					echo "<span class='nowrap'>";
-					echo "<a external='true' class='version-title-color' href='/allsky/index.php'>";
-					echo "Local Website</a>";
-					echo "</span>";
-}
-if ($useRemoteWebsite) {
-					echo "&nbsp;&nbsp;&nbsp;&nbsp; ";
-					echo "<span class='nowrap'>";
-					echo "<a external='true' class='version-title-color' href='$remoteWebsiteURL'>";
-					echo "Remote Website $remoteWebsiteVersion</a>";
-					echo "</span>";
-} ?>
-				</div>
-		</div> <!-- /.navbar-header -->
-	</nav>
-
-	<!-- Navigation.  Add "id" to any page that needs to be refreshed. -->
-	<div class="navbar-default sidebar" role="navigation">
+		</div>
 		<div class="sidebar-nav navbar-collapse pisky-sidebar-collapse">
 			<ul class="nav" id="side-menu">
 					<li class="pisky-nav-label">Observe</li>
@@ -418,6 +361,74 @@ if ($useRemoteWebsite) {
 
 			</ul>
 		</div><!-- /.navbar-collapse -->
+
+		<?php
+		// Service state and build sit at the foot of the rail rather than beside
+		// the brand. They are reference information, so the navigation keeps the
+		// eye-level space. Kept outside the collapsing menu so the rail can pin
+		// them without depending on Bootstrap's own layout rules for it.
+		?>
+		<div class="version-title version-title-color">
+				<span id="allskyStatus"><?php
+					echo $piskyCapabilities["camera"]
+						? output_allsky_status()
+						: "<span class='nowrap alert-success'>Platform: Running</span><br>";
+				?></span>
+<?php
+				$versionInfo = $piskyCapabilities["camera"]
+					? getNewestAllskyVersion($changed) : null;
+				if ($versionInfo !== null) {
+					$newestVersion = $versionInfo['version'];
+				} else {
+					$newestVersion = null;
+				}
+				if ($newestVersion !== null && $newestVersion > ALLSKY_VERSION) {
+					$note = getVariableOrDefault($versionInfo, "versionNote", "");
+					$more = "title='New Version $newestVersion Available";
+					if ($note !== "") {
+						$more .= ", $note";
+					}
+					$more .= "' style='background-color: red; color: white;'";
+
+					if ($changed) {
+						$x = "<br>&nbsp; &nbsp;";
+						$msg = "$x<strong>";
+						$msg .= "A new release of Allsky is available: $newestVersion";
+						$msg .= "</strong>";
+						if ($note !== "") {
+							$msg .= "$x$note";
+						}
+						$msg .= "<br><br>";
+						$cmd = ALLSKY_SCRIPTS . "/addMessage.sh";
+						$cmd .= " --no-date --type success --msg '${msg}'";
+						runCommand($cmd, "", "");
+					}
+				} else {
+					$more = "";
+				}
+				echo "<span class='nowrap'>";
+					$displayVersion = $piskyCapabilities["camera"]
+						? ALLSKY_VERSION
+						: trim(@file_get_contents(dirname(__DIR__) . "/PISKY_VERSION"));
+					echo "<span $more>Version: " . htmlspecialchars($displayVersion) . "</span>";
+					echo "&nbsp; on &nbsp;";
+					echo "<span style='font-weight: bold'>$hostname</span>";
+				echo "</span>";
+if ($useLocalWebsite) {
+				echo "<br>";
+				echo "<span class='nowrap'>";
+				echo "<a external='true' class='version-title-color' href='/allsky/index.php'>";
+				echo "Local Website</a>";
+				echo "</span>";
+}
+if ($useRemoteWebsite) {
+				echo "&nbsp;&nbsp;&nbsp;&nbsp; ";
+				echo "<span class='nowrap'>";
+				echo "<a external='true' class='version-title-color' href='$remoteWebsiteURL'>";
+				echo "Remote Website $remoteWebsiteVersion</a>";
+				echo "</span>";
+} ?>
+		</div>
 	</div><!-- /.navbar-default -->
 
 	<div id="page-wrapper">

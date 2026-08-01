@@ -19,13 +19,17 @@ const weatherClient = read("html/js/pisky-weather.js");
 const flightsClient = read("html/js/pisky-flights.js");
 const installer = read("install-pisky.sh");
 
-const topNavigationEnd = index.indexOf("</nav>");
 const sidebarStart = index.indexOf('<div class="navbar-default sidebar"');
 
-assert.ok(topNavigationEnd !== -1, "top navigation must close");
+assert.ok(sidebarStart !== -1, "the administration rail must exist");
+assert.doesNotMatch(
+	index,
+	/navbar-static-top/,
+	"nothing may sit above the rail: a bar that scrolls away leaves a gap over a pinned rail"
+);
 assert.ok(
-	sidebarStart > topNavigationEnd,
-	"the fixed sidebar must sit outside the blurred header containing block"
+	index.indexOf('class="pisky-sidebar-head"') > sidebarStart,
+	"the brand must live inside the rail rather than in a separate header"
 );
 assert.match(
 	index,
@@ -34,8 +38,8 @@ assert.match(
 );
 assert.match(
 	css,
-	/\.navbar-default\.sidebar\s*\{\s*position:\s*fixed;/,
-	"desktop sidebar must be fixed to the viewport"
+	/\.navbar-default\.sidebar\s*\{\s*position:\s*fixed;\s*top:\s*12px;\s*bottom:\s*12px;/,
+	"the desktop rail must span the viewport so no gap can open above it"
 );
 assert.match(
 	css,
@@ -102,6 +106,34 @@ assert.match(
 	/filemtime\(__DIR__ \. "\/js\/pisky-flights\.js"\)/,
 	"the public view must invalidate cached flight clients after an update"
 );
+// The radar credit strip carries the update time and the OpenStreetMap
+// attribution. Positioned absolutely it sat underneath the target list and the
+// selected-aircraft card, which both reach the same edge of the stage, so it
+// gets a grid row of its own that nothing else is allowed to occupy.
+const overlayStart = publicView.indexOf('class="pisky-scope-overlay"');
+const overlayEnd = publicView.indexOf('</section>', overlayStart);
+const creditStart = publicView.indexOf('class="pisky-scope-credit"');
+
+assert.ok(
+	creditStart > overlayStart && creditStart < overlayEnd,
+	"the radar credit must sit inside the overlay grid, not float over it"
+);
+assert.match(
+	css,
+	/\.pisky-scope-overlay\s*\{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\) auto;/,
+	"the radar overlay must reserve a row for the credit strip"
+);
+assert.match(
+	css,
+	/\.pisky-scope-detail\.is-open\s*\{[^}]*grid-row:\s*1 \/ 3;/,
+	"an opened aircraft card must stop short of the credit row"
+);
+assert.doesNotMatch(
+	css,
+	/\.pisky-scope-detail\s*\{[^}]*transition:\s*max-height/,
+	"opening the aircraft card must not be animated: Chrome parks a percentage max-height transition on its start value and the card never opens"
+);
+
 assert.doesNotMatch(index, /page=overlay|page=module/, "broken overlay and module controls must stay hidden");
 assert.match(index, /data-pisky-theme-toggle/, "the admin must expose the shared theme controller");
 assert.match(publicView, /pisky_site_capabilities/, "public navigation must follow enabled capabilities");

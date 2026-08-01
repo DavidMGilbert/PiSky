@@ -80,11 +80,13 @@ step "JavaScript"
 for f in html/js/pisky-context.js html/js/pisky-theme.js \
 	html/js/pisky-weather.js html/js/pisky-flights.js \
 	html/js/pisky-weather-icons.js html/js/pisky-charts.js \
-	html/js/pisky-history.js html/js/pisky-setup-tabs.js; do
+	html/js/pisky-history.js html/js/pisky-setup-tabs.js \
+	html/js/pisky-code-dialog.js html/js/pisky-map-picker.js; do
 	check node --check "$f"
 done
 check node tests/pisky-context.test.cjs
 check node tests/pisky-navigation.test.cjs
+check node tests/pisky-setup-dialogs.test.cjs
 check node tests/pisky-weather-icons.test.cjs
 
 step "Python"
