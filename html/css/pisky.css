@@ -2634,11 +2634,20 @@ body.pisky-public {
  * the colours drift away from the characters, so they are set together and any
  * change to one must be made to the other.
  */
+/*
+ * flex-basis, not flex: 1.
+ *
+ * In a column flex container flex-basis takes over from height on the main
+ * axis, so "flex: 1" (basis 0) collapsed this to nothing: the shell is sized by
+ * its content, which left no free space for the grow factor to claim, and the
+ * editor rendered as a two-line slot. Basing the flex on the height keeps the
+ * size while still allowing it to shrink inside a short window.
+ */
 .pisky-code-surface {
 	position: relative;
-	flex: 1;
-	min-height: 0;
-	height: min(58vh, 620px);
+	flex: 1 1 auto;
+	height: min(68vh, 760px);
+	min-height: 260px;
 	border: 1px solid var(--pisky-border);
 	border-radius: 13px;
 	background: rgba(5, 8, 19, 0.55);
@@ -2713,11 +2722,12 @@ body.pisky-public {
 .pisky-tok-value { color: #5ee6aa; }
 
 /* Location picker */
+/* Same reasoning as the editor surface above: basis from the height. */
 .pisky-map-stage {
 	position: relative;
-	flex: 1;
-	min-height: 0;
-	height: min(56vh, 560px);
+	flex: 1 1 auto;
+	height: min(62vh, 620px);
+	min-height: 240px;
 	border: 1px solid var(--pisky-border);
 	border-radius: 13px;
 	background: #0d1222;
