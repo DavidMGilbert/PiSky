@@ -475,10 +475,24 @@ sync_adsb()
 pisky_storage_layout()
 {
 	local web_user="www-data"
+
+	# WeeWX writes its PiSky observation into the weather directory as its own
+	# account, so that one directory belongs to weewx rather than root. The
+	# installer already created it that way; listing it as root:root here meant
+	# ensure-storage took the directory away from WeeWX, which then silently
+	# stopped being able to replace the file and the observation went stale.
+	# Falls back to root where WeeWX is not installed, since the account has to
+	# exist for the layout to name it.
+	local weather_owner="root" weather_group="root"
+	if getent passwd weewx >/dev/null 2>&1 && getent group weewx >/dev/null 2>&1; then
+		weather_owner="weewx"
+		weather_group="weewx"
+	fi
+
 	cat <<-EOF
 		/etc/pisky:0755:root:root
 		/var/lib/pisky:0755:root:root
-		/var/lib/pisky/weather:0755:root:root
+		/var/lib/pisky/weather:0755:${weather_owner}:${weather_group}
 		/var/lib/pisky/flights:0755:root:root
 		/var/lib/pisky/content:0750:${web_user}:${web_user}
 		/var/lib/pisky/content/media:0750:${web_user}:${web_user}
