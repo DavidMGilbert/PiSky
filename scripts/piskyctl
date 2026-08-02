@@ -1024,7 +1024,27 @@ control_service()
 			die "Service operation '${operation}' is not allowed."
 			;;
 	esac
-	echo "${id}: ${operation} completed."
+
+	# systemctl start succeeds for a unit whose process exits immediately
+	# afterwards, so reporting on the command's own result claimed success for
+	# a service that is not running. beast-splitter does exactly that when
+	# ENABLED is "no" in /etc/default/beast-splitter: its wrapper reads the
+	# setting, exits 0, and the interface said "start completed" beside a card
+	# still reading STOPPED.
+	case "${operation}" in
+		start|restart|enable-start)
+			if systemctl is-active --quiet "${unit}"; then
+				echo "${id}: ${operation} completed."
+			elif [[ ${id} == "beast-splitter" ]] 				&& ! grep -qs '^ENABLED="\?yes' /etc/default/beast-splitter; then
+				die "${id} exited immediately because it is switched off in /etc/default/beast-splitter. Choose Mode-S Beast in PiSky Setup and save, which writes that setting."
+			else
+				die "${id} did not stay running. Check: systemctl status ${unit}"
+			fi
+			;;
+		*)
+			echo "${id}: ${operation} completed."
+			;;
+	esac
 }
 
 usage()
