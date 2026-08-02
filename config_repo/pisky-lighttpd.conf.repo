@@ -29,7 +29,14 @@ setenv.add-environment = (
   "ALLSKY_HOME" => "XX_PISKY_ROOT_XX/"
 )
 
+# Allsky builds its image URL as current/tmp/image.jpg, from a convention where
+# /current/ is the installation root. PiSky maps /current/ at the temporary
+# directory instead, so that URL resolved to tmp/tmp/ and the camera image
+# 404ed. Pointing /current/ at the root would fix it and also publish the
+# configuration files, the scripts and the privileged helper over HTTP, so the
+# longer prefix is mapped explicitly and nothing outside tmp is reachable.
 alias.url = (
+  "/current/tmp/" => "XX_PISKY_TMP_XX/",
   "/current/" => "XX_PISKY_TMP_XX/",
   "/images/" => "XX_PISKY_IMAGES_XX/"
 )

@@ -617,9 +617,12 @@ sync_web()
 		die "The rendered lighttpd configuration failed its syntax check; nothing changed."
 	fi
 
-	if [[ -f /etc/lighttpd/lighttpd.conf && ! -f /etc/lighttpd/lighttpd.conf.pre-pisky ]]; then
-		cp --preserve=mode,ownership \
-			/etc/lighttpd/lighttpd.conf /etc/lighttpd/lighttpd.conf.pre-pisky
+	# Every run keeps its own copy. Backing up only when no .pre-pisky existed
+	# meant a second run overwrote a working configuration and kept nothing,
+	# which is exactly the case where the backup is wanted.
+	if [[ -f /etc/lighttpd/lighttpd.conf ]]; then
+		cp --preserve=mode,ownership /etc/lighttpd/lighttpd.conf \
+			"/etc/lighttpd/lighttpd.conf.pisky-$(date +%Y%m%d%H%M%S)"
 	fi
 	install -m 0644 -o root -g root -- "${rendered}" /etc/lighttpd/lighttpd.conf
 	rm -f -- "${rendered}"
