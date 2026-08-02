@@ -33,7 +33,31 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") !== "GET") {
 	header("Allow: GET, OPTIONS");
 	pisky_api_error("The PiSky API is read-only.", 405);
 }
-if (empty($settings["enabled"])) {
+/*
+ * Listing on the shared map is itself consent to be read, and it is read
+ * through this resource. Requiring the public API to be switched on as well
+ * made opting in on the Station tab do nothing, with the failure surfacing
+ * only as an unreachable station on a website the host does not control.
+ *
+ * Only the station resource is admitted this way. It carries identity,
+ * capabilities and the position the host chose to publish — nothing the
+ * listing does not already put on a public map — while weather, aircraft,
+ * history and the sky image stay behind the API switch.
+ */
+// PATH_INFO is used when the server supplies it, otherwise the query
+// parameter. Resolved before the switch below needs it, because whether this
+// request is allowed at all depends on which resource was asked for.
+$resource = "";
+if (isset($_SERVER["PATH_INFO"]) && $_SERVER["PATH_INFO"] !== "") {
+	$resource = trim(strval($_SERVER["PATH_INFO"]), "/");
+} else if (isset($_GET["resource"]) && !is_array($_GET["resource"])) {
+	$resource = trim(strval($_GET["resource"]));
+}
+$resource = strtolower(preg_replace("/[^a-z0-9_-]/i", "", $resource));
+
+$listed = !empty(pisky_directory_config()["enabled"]);
+
+if (empty($settings["enabled"]) && !($listed && $resource === "station")) {
 	pisky_api_error("This station has not enabled its public API.", 404);
 }
 
@@ -49,15 +73,6 @@ if (!$withinLimit) {
 		"Rate limit reached. Supply an API key for a higher allowance.", 429
 	);
 }
-
-// PATH_INFO is used when the server supplies it, otherwise the query parameter.
-$resource = "";
-if (isset($_SERVER["PATH_INFO"]) && $_SERVER["PATH_INFO"] !== "") {
-	$resource = trim(strval($_SERVER["PATH_INFO"]), "/");
-} else if (isset($_GET["resource"]) && !is_array($_GET["resource"])) {
-	$resource = trim(strval($_GET["resource"]));
-}
-$resource = strtolower(preg_replace("/[^a-z0-9_-]/i", "", $resource));
 
 switch ($resource) {
 	case "":

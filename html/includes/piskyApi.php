@@ -187,11 +187,27 @@ function pisky_api_station($settings_array) {
 	if (!empty($directory["enabled"])) {
 		$identifier = pisky_directory_station_id($directory);
 		$precision = pisky_directory_precision($directory);
+		/*
+		 * The station position is written to both the weather and the aircraft
+		 * configuration by Setup, but only one of them is guaranteed to hold
+		 * it: a station that has never saved the aircraft section, or has the
+		 * module switched off, has coordinates under weather alone. Reading
+		 * only the aircraft copy meant such a station published no position and
+		 * so could never be placed, while its own pages showed the location
+		 * perfectly well.
+		 */
+		$weatherConfig = pisky_weather_config();
+		$openMeteo = isset($weatherConfig["open_meteo"]) && is_array($weatherConfig["open_meteo"])
+			? $weatherConfig["open_meteo"] : array();
 		$latitude = pisky_decimal_coordinate(
-			isset($flights["latitude"]) ? $flights["latitude"] : ""
+			isset($flights["latitude"]) && $flights["latitude"] !== ""
+				? $flights["latitude"]
+				: (isset($openMeteo["latitude"]) ? $openMeteo["latitude"] : "")
 		);
 		$longitude = pisky_decimal_coordinate(
-			isset($flights["longitude"]) ? $flights["longitude"] : ""
+			isset($flights["longitude"]) && $flights["longitude"] !== ""
+				? $flights["longitude"]
+				: (isset($openMeteo["longitude"]) ? $openMeteo["longitude"] : "")
 		);
 		// Without both a position and an identity there is nothing to place.
 		if ($identifier !== "" && $latitude !== null && $longitude !== null) {

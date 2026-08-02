@@ -1133,6 +1133,19 @@ $directoryPublic = pisky_site_public_url();
 			address under Public Content before switching this on.
 		</div>
 		<?php } ?>
+		<?php
+		// The map reads this station through /api/v1/station. Listing is itself
+		// consent to that, so the resource answers even with the public API
+		// switched off, but the host should be able to see the exact address
+		// being fetched and try it themselves.
+		$directoryApi = rtrim($directoryPublic, "/") . "/api/v1/station";
+		?>
+		<p class="pisky-form-intro">
+			Verified by reading
+			<a href="<?php echo htmlspecialchars($directoryApi); ?>" target="_blank" rel="noopener"><code><?php echo htmlspecialchars($directoryApi); ?></code></a>.
+			Open that from outside your own network to confirm the map can reach
+			it. It answers whether or not the public API is switched on.
+		</p>
 		<div class="pisky-setup-actions">
 			<button class="btn btn-primary" type="submit" <?php echo $useLogin ? "" : "disabled"; ?>>
 				Save listing
