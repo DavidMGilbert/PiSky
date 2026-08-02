@@ -1,0 +1,15 @@
+# PiSky on Apache.
+#
+# The installer configures lighttpd, but a station can end up served by Apache
+# instead — Allsky installs it, and a reverse proxy in front of the Pi is often
+# Apache too. Without this the clean API routes answer 404, which is enough on
+# its own to keep a station off the shared map.
+#
+# This grants the PiSky web root the override the shipped .htaccess needs.
+# Nothing here serves the site; it only permits the rules that already ship
+# beside the handler.
+<Directory "XX_PISKY_WEBROOT_XX">
+	# FileInfo is what mod_rewrite directives in .htaccess require.
+	AllowOverride FileInfo Options Indexes
+	Require all granted
+</Directory>

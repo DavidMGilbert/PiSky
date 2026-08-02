@@ -493,6 +493,44 @@ install_headless_web_foundation()
 	trap - RETURN
 	run_root lighty-enable-mod fastcgi-php-fpm
 	run_root systemctl enable --now lighttpd.service
+
+	configure_apache_if_present
+}
+
+#
+# Make the clean API routes work when Apache is the server.
+#
+# PiSky configures lighttpd, but a station can be served by Apache instead:
+# Allsky installs it, and a reverse proxy fronting the Pi frequently is one.
+# In that case /api/v1/station answered 404 while the query-string form worked,
+# which was enough on its own to keep the station off the shared map, because
+# the directory reads the clean address.
+#
+# A no-op where Apache is not installed, so the ordinary lighttpd station pays
+# nothing for it.
+#
+configure_apache_if_present()
+{
+	command -v apache2ctl >/dev/null 2>&1 || return 0
+	[[ -d /etc/apache2/conf-available ]] || return 0
+
+	log "Apache detected; enabling clean API routes."
+
+	local apache_temporary
+	apache_temporary="$(mktemp)"
+	sed -e "s|XX_PISKY_WEBROOT_XX|$(sed_escape "${PISKY_ROOT}/html")|g" 		"${PISKY_ROOT}/config_repo/pisky-apache.conf.repo" > "${apache_temporary}"
+	run_root install -m 0644 -o root -g root 		"${apache_temporary}" /etc/apache2/conf-available/pisky.conf
+	rm -f -- "${apache_temporary}"
+
+	run_root a2enmod rewrite >/dev/null 2>&1 || true
+	run_root a2enconf pisky >/dev/null 2>&1 || true
+	# A configuration Apache rejects must not take the site down, so it is
+	# only reloaded once it has passed its own syntax check.
+	if run_root apache2ctl configtest >/dev/null 2>&1; then
+		run_root systemctl reload apache2 >/dev/null 2>&1 || true
+	else
+		log "Apache rejected the PiSky configuration; leaving it untouched."
+	fi
 }
 
 install_base()

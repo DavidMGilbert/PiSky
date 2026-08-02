@@ -1,0 +1,35 @@
+# Clean API routes on Apache.
+#
+# PiSky publishes /api/v1/<resource>, and the shipped lighttpd configuration
+# rewrites it. A station served by Apache instead — because Allsky installed it,
+# or because a reverse proxy fronts the Pi — had no such rule, so every clean
+# URL answered 404 while /api/v1/index.php?resource=<name> worked perfectly.
+# That is what stopped stations appearing on the shared map: the directory reads
+# the clean address.
+#
+# This lives beside the handler rather than in the server configuration so a
+# station is fixed by updating PiSky, with no root access and no service
+# restart. It needs AllowOverride to permit FileInfo for this directory, which
+# is the Debian default for /var/www but not for every vhost; where it is not
+# permitted the equivalent rules belong in the vhost itself.
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+
+	# Real files and directories are served as they are, so index.php,
+	# station.php and the rest keep working untouched.
+	RewriteCond %{REQUEST_FILENAME} !-f
+	RewriteCond %{REQUEST_FILENAME} !-d
+
+	# Only the resource names the API actually routes. Anything else falls
+	# through to a normal 404 rather than reaching the handler as a value it
+	# then has to reject.
+	RewriteRule ^(station|weather|aircraft|sky|history)/?$ index.php?resource=$1 [QSA,L]
+</IfModule>
+
+# Without mod_rewrite the clean URLs cannot work, but MultiViews maps
+# /api/v1/station to station.php, which is the same handler by another route.
+<IfModule !mod_rewrite.c>
+	<IfModule mod_negotiation.c>
+		Options +MultiViews
+	</IfModule>
+</IfModule>
