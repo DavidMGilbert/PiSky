@@ -8,7 +8,7 @@ set -Eeuo pipefail
 umask 027
 
 readonly CONFIG_FILE="/etc/pisky/pisky.conf"
-readonly CONTROL_VERSION="5"
+readonly CONTROL_VERSION="6"
 readonly DUMP1090_CONFIG="/etc/default/dump1090-mutability"
 readonly BEAST_SPLITTER_CONFIG="/etc/default/beast-splitter"
 readonly WEEWX_STATION_CONFIG="/etc/pisky/weewx-station.json"
@@ -581,6 +581,54 @@ apply_beacon_timer()
 	fi
 }
 
+#
+# Re-apply the web server configuration.
+#
+# The lighttpd configuration is written by the installer, so rules added to
+# PiSky after a station was set up never reach it: updating the checkout leaves
+# /etc/lighttpd/lighttpd.conf exactly as it was. That is how stations ended up
+# answering 404 for /api/v1/station while /api/v1/index.php?resource=station
+# worked, which was enough to keep them off the shared map.
+#
+# Re-rendering it here means a station is repaired by updating PiSky and
+# running one command, rather than by re-running the whole installer.
+#
+sync_web()
+{
+	local template rendered webroot
+	template="${PISKY_ROOT}/config_repo/pisky-lighttpd.conf.repo"
+	[[ -r ${template} ]] || die "The lighttpd template is missing from ${PISKY_ROOT}."
+	command -v lighttpd >/dev/null 2>&1 || die "lighttpd is not installed."
+
+	webroot="${PISKY_ROOT}/html"
+	rendered="$(mktemp)"
+	sed \
+		-e "s|XX_PISKY_WEBROOT_XX|${webroot}|g" \
+		-e "s|XX_PISKY_ROOT_XX|${PISKY_ROOT}|g" \
+		-e "s|XX_PISKY_TMP_XX|${PISKY_ROOT}/tmp|g" \
+		-e "s|XX_PISKY_IMAGES_XX|${PISKY_ROOT}/images|g" \
+		"${template}" > "${rendered}"
+
+	# A configuration lighttpd rejects must never be installed: that would take
+	# the whole station offline at the next restart, including the interface
+	# someone would use to put it right.
+	if ! lighttpd -t -f "${rendered}" >/dev/null 2>&1; then
+		rm -f -- "${rendered}"
+		die "The rendered lighttpd configuration failed its syntax check; nothing changed."
+	fi
+
+	if [[ -f /etc/lighttpd/lighttpd.conf && ! -f /etc/lighttpd/lighttpd.conf.pre-pisky ]]; then
+		cp --preserve=mode,ownership \
+			/etc/lighttpd/lighttpd.conf /etc/lighttpd/lighttpd.conf.pre-pisky
+	fi
+	install -m 0644 -o root -g root -- "${rendered}" /etc/lighttpd/lighttpd.conf
+	rm -f -- "${rendered}"
+
+	systemctl reload lighttpd.service >/dev/null 2>&1 \
+		|| systemctl restart lighttpd.service >/dev/null 2>&1 || true
+	echo "Web server configuration re-applied."
+}
+
 validate_history()
 {
 	local file="${1}"
@@ -1019,6 +1067,10 @@ main()
 		test-weewx-station)
 			[[ $# -eq 1 ]] || die "test-weewx-station takes no arguments."
 			test_weewx_station
+			;;
+		sync-web)
+			[[ $# -eq 1 ]] || die "sync-web takes no arguments."
+			sync_web
 			;;
 		sync-directory)
 			[[ $# -eq 1 ]] || die "sync-directory takes no arguments."

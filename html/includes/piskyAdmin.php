@@ -153,7 +153,7 @@ function pisky_admin_read_history(&$error) {
  * a statement of what happened and what to do.
  */
 if (!defined("PISKY_REQUIRED_CONTROL_VERSION")) {
-	define("PISKY_REQUIRED_CONTROL_VERSION", 5);
+	define("PISKY_REQUIRED_CONTROL_VERSION", 6);
 }
 
 function pisky_admin_control_version() {
