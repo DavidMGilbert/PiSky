@@ -84,8 +84,10 @@ if ($response === false) {
 }
 
 $decoded = json_decode($response, true);
+// Long enough for the directory's own diagnosis to survive intact. Truncating
+// it mid-sentence hid the part naming what to fix.
 $message = is_array($decoded) && isset($decoded["message"])
-	? substr(strval($decoded["message"]), 0, 200) : "";
+	? substr(strval($decoded["message"]), 0, 400) : "";
 
 if ($status >= 200 && $status < 300) {
 	pisky_beacon_record($message !== "" ? $message : "Listed on the shared map.", true);
