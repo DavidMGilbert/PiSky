@@ -171,9 +171,8 @@ function pisky_admin_control_warning() {
 	if ($installed === null || $installed >= PISKY_REQUIRED_CONTROL_VERSION) return "";
 	return "The PiSky privileged helper on this system is version " . $installed
 		. ", but this interface needs version " . PISKY_REQUIRED_CONTROL_VERSION
-		. ". Newer controls will fail until it is updated. Re-run"
-		. " install-pisky.sh, or copy scripts/piskyctl to"
-		. " /usr/local/sbin/piskyctl.";
+		. ". Newer controls will fail until it is updated. From the PiSky"
+		. " folder run: sudo ./update-pisky.sh";
 }
 
 function pisky_admin_status(&$error) {

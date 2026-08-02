@@ -101,11 +101,17 @@ configure a receiver. Full instructions are in
 ## Upgrading
 
 ```bash
-cd PiSky && git pull && ./install-pisky.sh
+cd PiSky && git pull && sudo ./update-pisky.sh
 ```
 
-Re-running the installer is safe. It preserves your configuration, your public
-content and your enabled capabilities.
+`update-pisky.sh` refreshes the parts of PiSky that live outside the checkout:
+the privileged helper, the web server configuration and the scheduled units.
+`git pull` on its own leaves those exactly as they were, which is how a station
+ends up running current code against an old helper.
+
+Re-running `./install-pisky.sh` also works and is safe — it preserves your
+configuration, public content and enabled capabilities — but it reinstalls
+packages and reconfigures services, which an update rarely needs.
 
 > The installer also refreshes PiSky's privileged helper. Pulling new code
 > **without** re-running it leaves that helper behind, and the interface will
